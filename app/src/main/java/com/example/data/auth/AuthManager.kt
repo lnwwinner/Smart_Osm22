@@ -44,6 +44,16 @@ open class AuthManager(
         private const val TAG = "AuthManager"
     }
 
+data class VillageAssignment(
+    val uid: String,
+    val villageNo: String,
+    val villageName: String,
+    val subdistrict: String,
+    val district: String,
+    val province: String,
+    val active: Boolean
+)
+
     private val firebaseAuth: FirebaseAuth?
         get() = authProvider()
 
@@ -388,6 +398,58 @@ open class AuthManager(
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to initialize AuthStateListener: ${e.message}")
+        }
+    }
+
+    /**
+     * Reads the server-provisioned village assignment for the current Firebase user.
+     * The client cannot create or modify this document; Firestore Rules enforce that
+     * only the user's own assignment can be read.
+     */
+    open suspend fun getAssignedVillage(): Result<VillageAssignment> = withContext(Dispatchers.IO) {
+        try {
+            val user = firebaseAuth?.currentUser
+                ?: return@withContext Result.failure(IllegalStateException("ยังไม่ได้เข้าสู่ระบบ Firebase"))
+            if (user.isAnonymous) {
+                return@withContext Result.failure(IllegalStateException("บัญชี Anonymous ยังไม่ได้รับอนุญาตให้เข้าถึงพื้นที่"))
+            }
+
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance(
+                "ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f"
+            )
+            val snapshot = firestore.collection("village_assignments")
+                .document(user.uid)
+                .get()
+                .await()
+
+            if (!snapshot.exists()) {
+                return@withContext Result.failure(
+                    IllegalStateException("ยังไม่ได้รับการกำหนดพื้นที่รับผิดชอบสำหรับบัญชีนี้")
+                )
+            }
+
+            val active = snapshot.getBoolean("active") ?: false
+            val villageNo = snapshot.getString("villageNo")?.trim().orEmpty()
+            if (!active || villageNo.isBlank()) {
+                return@withContext Result.failure(
+                    IllegalStateException("พื้นที่รับผิดชอบของบัญชีนี้ยังไม่พร้อมใช้งาน")
+                )
+            }
+
+            Result.success(
+                VillageAssignment(
+                    uid = user.uid,
+                    villageNo = villageNo,
+                    villageName = snapshot.getString("villageName")?.trim().orEmpty(),
+                    subdistrict = snapshot.getString("subdistrict")?.trim().orEmpty(),
+                    district = snapshot.getString("district")?.trim().orEmpty(),
+                    province = snapshot.getString("province")?.trim().orEmpty(),
+                    active = active
+                )
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load village assignment", e)
+            Result.failure(e)
         }
     }
 
