@@ -203,6 +203,10 @@ class PersonRepository(
         healthScreeningDao.delete(screening)
     }
 
+    suspend fun deleteScreeningByUuid(uuid: String) {
+        healthScreeningDao.deleteByUuid(uuid)
+    }
+
     suspend fun getScreeningByUuid(uuid: String): HealthScreening? {
         return healthScreeningDao.getScreeningByUuid(uuid)
     }
