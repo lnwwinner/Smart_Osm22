@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -18,6 +19,7 @@ import com.example.viewmodel.PersonViewModel
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.ui.graphics.Color
 import com.example.data.sync.SyncState
+import kotlinx.coroutines.launch
 
 @Composable
 fun SyncStatusBar(syncState: SyncState) {
@@ -65,21 +67,49 @@ fun RegistrationListScreen(
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
-                        .testTag("search_bar"),
-                    placeholder = { Text("ค้นหาชื่อ หรือ เลขบัตร...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                    singleLine = true
-                )
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("search_bar"),
+                        placeholder = { Text("ค้นหาชื่อ หรือ เลขบัตร...") },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = {
+                        viewModel.exportToCsv(context) { success, uri, message ->
+                            if (success && uri != null) {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/csv"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(intent, "แชร์ไฟล์ CSV"))
+                            } else {
+                                scope.launch { snackbarHostState.showSnackbar(message) }
+                            }
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Export CSV")
+                    }
+                }
                 SyncStatusBar(syncState)
             }
         }

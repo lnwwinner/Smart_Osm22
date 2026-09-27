@@ -362,6 +362,64 @@ class PersonViewModel(
     suspend fun getHouseholdById(id: Long): Household? = repository.getHouseholdById(id)
     fun getHouseholdWithPersonsById(id: Long) = repository.getHouseholdWithPersonsById(id)
 
+    fun exportToCsv(
+        context: Context,
+        onComplete: (Boolean, Uri?, String) -> Unit
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val households = repository.getAllHouseholds().associateBy { it.id }
+                val persons = repository.getAllPersonsList()
+
+                val exportDir = java.io.File(context.cacheDir, "exports")
+                if (!exportDir.exists()) exportDir.mkdirs()
+                val fileName = "smart_osm_export_${System.currentTimeMillis()}.csv"
+                val file = java.io.File(exportDir, fileName)
+
+                file.bufferedWriter().use { writer ->
+                    // Write CSV Header
+                    writer.write("HouseholdUUID,PersonUUID,HouseNo,VillageNo,Subdistrict,District,Province,NationalID,FullName,Gender,BirthDate,Status")
+                    writer.newLine()
+                    
+                    persons.forEach { p ->
+                        val h = households[p.householdId]
+                        val row = listOf(
+                            h?.householdUuid ?: "",
+                            p.personUuid,
+                            h?.houseNo ?: "",
+                            h?.villageNo ?: "",
+                            h?.subdistrict ?: "",
+                            h?.district ?: "",
+                            h?.province ?: "",
+                            p.nationalId ?: "",
+                            p.fullName,
+                            p.gender.name,
+                            p.birthDate?.toString() ?: "",
+                            p.personStatus.name
+                        ).joinToString(",") { "\"${it.replace("\"", "\"\"")}\"" }
+                        writer.write(row)
+                        writer.newLine()
+                    }
+                }
+
+                val contentUri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+
+                withContext(Dispatchers.Main) {
+                    onComplete(true, contentUri, "เตรียมไฟล์ CSV เรียบร้อยแล้ว (${persons.size} รายการ)")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    onComplete(false, null, "เกิดข้อผิดพลาดในการสร้างไฟล์ CSV: ${e.message}")
+                }
+            }
+        }
+    }
+
     fun insert(person: Person) = viewModelScope.launch { 
         repository.insert(person.copy(lastModified = System.currentTimeMillis())) 
     }
