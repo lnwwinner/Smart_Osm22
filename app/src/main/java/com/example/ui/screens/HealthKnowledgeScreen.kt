@@ -2,6 +2,8 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,7 +35,7 @@ fun HealthKnowledgeScreen(
 ) {
     val scrollState = rememberScrollState()
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("บทบาทหน้าที่ อสม.", "เกณฑ์ความดัน", "ดัชนีมวลกาย (BMI)", "ความรู้ตามช่วงวัย")
+    val tabs = listOf("บทบาทหน้าที่ อสม.", "เกณฑ์ความดัน", "ดัชนีมวลกาย (BMI)", "ความรู้ตามช่วงวัย", "ป้องกันไข้เลือดออก", "ภาวะฉุกเฉิน")
 
     Scaffold(
         topBar = {
@@ -84,7 +86,13 @@ fun HealthKnowledgeScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Hero Image
+                // Dynamic Hero Image matching the topic
+                val heroImageRes = when (selectedTab) {
+                    4 -> R.drawable.ic_dengue_fever_guide
+                    5 -> R.drawable.ic_emergency_guide
+                    else -> R.drawable.img_knowledge_hero
+                }
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -93,7 +101,7 @@ fun HealthKnowledgeScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.img_knowledge_hero),
+                        painter = painterResource(id = heroImageRes),
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -105,6 +113,8 @@ fun HealthKnowledgeScreen(
                     1 -> BloodPressureGuideContent()
                     2 -> BmiGuideContent()
                     3 -> AgeGroupKnowledgeContent()
+                    4 -> DenguePreventionContent()
+                    5 -> MedicalEmergencyContent()
                 }
             }
         }
@@ -319,5 +329,270 @@ fun AgeGroupCard(title: String, focus: String, details: List<String>) {
                 Text(text = detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+fun DenguePreventionContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            "แนวทางป้องกันไข้เลือดออก (Dengue Fever Prevention)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = EmeraldPrimary
+        )
+
+        Text(
+            "โรคไข้เลือดออกเกิดจากเชื้อไวรัสเดงกี (Dengue Virus) มียุงลายเป็นพาหะนำโรค การควบคุมแหล่งเพาะพันธุ์ยุงลายคือหัวใจสำคัญในการป้องกันที่ดีที่สุด",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Campaign: 3 เก็บ 5 ส.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Shield, contentDescription = null, tint = EmeraldPrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "มาตรการ “3 เก็บ ป้องกัน 3 โรค”",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldPrimary
+                    )
+                }
+                Text(
+                    "1. เก็บบ้าน: ให้สะอาด โปร่ง โล่ง ไม่ให้ยุงลายเกาะพัก\n" +
+                    "2. เก็บขยะ: เศษภาชนะที่จะเป็นแหล่งน้ำขังรอบบ้าน\n" +
+                    "3. เก็บน้ำ: ปิดฝาภาชนะเก็บน้ำให้มิดชิด หรือใส่ทรายอะเบท",
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Text(
+            "เช็คลิสต์สำรวจลูกน้ำยุงลายสำหรับ อสม. (Interactive Survey)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        // Interactive survey checklist
+        var survey1 by remember { mutableStateOf(false) }
+        var survey2 by remember { mutableStateOf(false) }
+        var survey3 by remember { mutableStateOf(false) }
+        var survey4 by remember { mutableStateOf(false) }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("ใช้ประกอบการตรวจเยี่ยมหลังบ้านเพื่อประเมินความปลอดภัย:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = survey1, onCheckedChange = { survey1 = it })
+                Text("ตรวจโอ่งน้ำ/ถังน้ำ (มีฝาปิดมิดชิด / ใส่ทรายกำจัดลูกน้ำ)", style = MaterialTheme.typography.bodySmall)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = survey2, onCheckedChange = { survey2 = it })
+                Text("ตรวจจานรองกระถางต้นไม้ (ไม่มีน้ำขังค้างสะสม)", style = MaterialTheme.typography.bodySmall)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = survey3, onCheckedChange = { survey3 = it })
+                Text("ตรวจยางรถยนต์เก่าหรือเศษกระป๋อง (จัดเก็บในร่ม ไม่โดนฝน)", style = MaterialTheme.typography.bodySmall)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = survey4, onCheckedChange = { survey4 = it })
+                Text("ตรวจรางน้ำฝนรอบบ้าน (โปร่ง สะอาด ไม่มีใบไม้อุดตัน)", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        // Warning Symptoms
+        Text(
+            "อาการสงสัยไข้เลือดออกที่ต้องเฝ้าระวัง",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFD32F2F)
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFD32F2F).copy(alpha = 0.05f)),
+            border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.15f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "• มีไข้สูงลอยเฉียบพลัน (38.5 - 40 °C) นานประมาณ 2-7 วัน\n" +
+                    "• ปวดศีรษะ ปวดกระบอกตา ปวดเมื่อยตามตัว\n" +
+                    "• มีจุดเลือดออกสีแดงเล็กๆ ตามแขน ขา ลำตัว\n" +
+                    "• คลื่นไส้ อาเจียน เบื่ออาหาร ปวดท้องบริเวณใต้ชายโครงขวา",
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "⚠️ ห้ามทานยากลุ่ม Aspirin หรือ Ibuprofen เด็ดขาด เพราะเสี่ยงเลือดออกในทางเดินอาหารรุนแรง ให้ใช้ยาพาราเซตามอลแทน",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFD32F2F)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun MedicalEmergencyContent() {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            "การประเมินภาวะฉุกเฉินและการกู้ชีพเบื้องต้น (Medical Emergency Guide)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = EmeraldPrimary
+        )
+
+        // FAST Stroke protocol
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFD32F2F).copy(alpha = 0.04f)),
+            border = BorderStroke(1.dp, Color(0xFFD32F2F).copy(alpha = 0.15f)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Warning, contentDescription = null, tint = Color(0xFFD32F2F))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "สงสัยโรคหลอดเลือดสมอง (Stroke) ประเมินด้วย FAST",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD32F2F)
+                    )
+                }
+
+                Text(
+                    "หากพบคนไข้มีอาการเหล่านี้ ให้รีบประสานส่งต่อทันที เพราะทุกวินาทีคือเซลล์สมอง:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(24.dp).background(Color(0xFFD32F2F), CircleShape), contentAlignment = Alignment.Center) {
+                            Text("F", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Face (หน้าเบี้ยว / ปากเบี้ยว)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text("ยิ้มแล้วมุมปากตกข้างหนึ่ง หรือหน้าเบี้ยวซีกใดซีกหนึ่ง", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(24.dp).background(Color(0xFFD32F2F), CircleShape), contentAlignment = Alignment.Center) {
+                            Text("A", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Arm (แขนขาอ่อนแรง)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text("ยกแขนไม่ขึ้น หรือขาไม่มีแรงเฉียบพลันซีกเดียว", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(24.dp).background(Color(0xFFD32F2F), CircleShape), contentAlignment = Alignment.Center) {
+                            Text("S", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Speech (พูดลำบาก / พูดไม่ชัด)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                            Text("พูดอ้อแอ้ พูดไม่ชัด พูดไม่ออก หรือฟังคนอื่นไม่รู้เรื่อง", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(24.dp).background(Color(0xFFD32F2F), CircleShape), contentAlignment = Alignment.Center) {
+                            Text("T", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text("Time (เวลาวิกฤต / รีบด่วน)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                            Text("โทรเรียกสายด่วน 1669 ทันที ต้องไปโรงพยาบาลภายใน 4.5 ชม.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Basic CPR Guidelines
+        Text(
+            "ขั้นตอนการช่วยฟื้นคืนชีพเบื้องต้น (CPR สำหรับประชาชน)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val steps = listOf(
+                "1. ประเมินความปลอดภัย" to "ดูสิ่งแวดล้อมรอบตัวคนไข้ให้ปลอดภัยก่อนเข้าไปช่วยเหลือเสมอ",
+                "2. ปลุกเรียก" to "ตบไหล่ทั้งสองข้างแรงๆ แล้วเรียก 'คุณๆ เป็นอย่างไรบ้าง!' สังเกตการหายใจ",
+                "3. โทร 1669" to "หากไม่ตอบสนอง ไม่หายใจ หรือหายใจเฮือก โทร 1669 ทันที แจ้งพิกัดและอาการ",
+                "4. ปั๊มหัวใจ (Chest Compression)" to "วางส้นมือบริเวณกึ่งกลางหน้าอก (กระดูกหน้าอก) กดลึก 5-6 ซม. ความเร็ว 100-120 ครั้งต่อนาที ปล่อยหน้าอกคืนสุดทุกครั้ง",
+                "5. ใช้เครื่อง AED" to "หากมีเครื่องช็อกจากกระแสไฟฟ้าอัตโนมัติ (AED) ให้เปิดเครื่องและปฏิบัติตามเสียงสั่งทันที"
+            )
+
+            steps.forEach { (stepTitle, stepDesc) ->
+                Column {
+                    Text(stepTitle, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = EmeraldPrimary)
+                    Text(stepDesc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
+
+        // Hotline action button
+        var showCallSimulated by remember { mutableStateOf(false) }
+
+        Button(
+            onClick = { showCallSimulated = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Filled.Call, contentDescription = null, tint = Color.White)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("จำลองการติดต่อสายด่วน 1669 ด่วน", fontWeight = FontWeight.Bold, color = Color.White)
+        }
+
+        if (showCallSimulated) {
+            AlertDialog(
+                onDismissRequest = { showCallSimulated = false },
+                title = { Text("สายด่วนการแพทย์ฉุกเฉิน 1669", fontWeight = FontWeight.Bold) },
+                text = { Text("ในเครื่องโทรศัพท์จริง ปุ่มนี้จะทำการโทรออกไปยังหมายเลข 1669 ทันที\n\nสิ่งที่ อสม. ต้องแจ้งเจ้าหน้าที่:\n• สถานที่เกิดเหตุ / พิกัดบ้าน\n• เพศและอาการคนไข้เบื้องต้น\n• เบอร์โทรศัพท์สำหรับติดต่อกลับ") },
+                confirmButton = {
+                    TextButton(onClick = { showCallSimulated = false }) {
+                        Text("ตกลง", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
