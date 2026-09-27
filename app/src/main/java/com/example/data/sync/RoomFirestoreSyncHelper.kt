@@ -86,6 +86,7 @@ open class RoomFirestoreSyncHelper(
         const val COLLECTION_HOUSEHOLDS = "households"
         const val COLLECTION_PERSONS = "persons"
         const val COLLECTION_TOMBSTONES = "tombstones"
+        const val COLLECTION_HEALTH_SCREENINGS = "health_screenings"
     }
 
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
@@ -523,11 +524,121 @@ open class RoomFirestoreSyncHelper(
                 return@withContext pullResult
             }
             val pushResult = syncRoomToFirestore(villageNo)
+            if (pushResult.isFailure) return@withContext pushResult
+            val healthPull = syncHealthScreeningsFromFirestore(villageNo)
+            if (healthPull.isFailure) return@withContext Result.failure(healthPull.exceptionOrNull()!!)
+            val healthPush = syncHealthScreeningsToFirestore(villageNo)
+            if (healthPush.isFailure) return@withContext Result.failure(healthPush.exceptionOrNull()!!)
             pushResult
         } catch (e: Exception) {
             Log.e(TAG, "Error during bidirectional sync", e)
             Result.failure(e)
         }
+    }
+
+    /** Syncs health screenings using screeningUuid as document identity. */
+    suspend fun syncHealthScreeningsToFirestore(villageNo: String? = null): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val firestore = getFirestore()
+            val activeVillageNo = villageNo ?: context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE).getString("surveyor_village_no", null)
+            val screenings = repository.getAllScreeningsList().filter { activeVillageNo == null || it.villageNo == activeVillageNo }
+            val persons = repository.getAllPersonsList().associateBy { it.id }
+            val households = repository.getAllHouseholds().associateBy { it.id }
+            val batches = screenings.filter { !checkTombstoneExists(it.screeningUuid, "health_screening") }.chunked(400)
+            var count = 0
+            for (chunk in batches) {
+                val batch = firestore.batch()
+                for (s in chunk) {
+                    val person = persons[s.personId]
+                    val household = person?.let { households[it.householdId] }
+                    val ref = firestore.collection(COLLECTION_HEALTH_SCREENINGS).document(s.screeningUuid)
+                    batch.set(ref, healthScreeningToMap(s, person?.personUuid ?: s.personUuid, household?.villageNo ?: s.villageNo), SetOptions.merge())
+                    count++
+                }
+                batch.commit().await()
+            }
+            Result.success(count)
+        } catch (e: Exception) {
+            Log.e(TAG, "Health screening upload failed", e)
+            Result.failure(e)
+        }
+    }
+
+    /** Pulls health screenings for the active village into Room, preserving UUID identity. */
+    suspend fun syncHealthScreeningsFromFirestore(villageNo: String? = null): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val firestore = getFirestore()
+            val activeVillageNo = villageNo ?: context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE).getString("surveyor_village_no", null)
+            val query = if (activeVillageNo != null) firestore.collection(COLLECTION_HEALTH_SCREENINGS).whereEqualTo("villageNo", activeVillageNo) else firestore.collection(COLLECTION_HEALTH_SCREENINGS)
+            val docs = query.get().await()
+            var count = 0
+            for (doc in docs.documents) {
+                val uuid = doc.getString("screeningUuid") ?: doc.id
+                if (checkTombstoneExists(uuid, "health_screening")) continue
+                val personUuid = doc.getString("personUuid") ?: continue
+                val person = repository.getPersonByUuid(personUuid) ?: continue
+                val screening = docToHealthScreening(doc, person.id) ?: continue
+                val existing = repository.getScreeningByUuid(uuid)
+                if (existing == null) repository.insertScreening(screening.copy(id = 0, personId = person.id))
+                else repository.updateScreening(screening.copy(id = existing.id, personId = person.id))
+                count++
+            }
+            Result.success(count)
+        } catch (e: Exception) {
+            Log.e(TAG, "Health screening download failed", e)
+            Result.failure(e)
+        }
+    }
+
+    private fun healthScreeningToMap(screening: com.example.data.HealthScreening, personUuid: String, villageNo: String): Map<String, Any?> = mapOf(
+        "screeningUuid" to screening.screeningUuid,
+        "personUuid" to personUuid,
+        "villageNo" to villageNo,
+        "timestamp" to screening.timestamp,
+        "weight" to screening.weight,
+        "height" to screening.height,
+        "bmi" to screening.bmi,
+        "systolic" to screening.systolic,
+        "diastolic" to screening.diastolic,
+        "bloodSugar" to screening.bloodSugar,
+        "bloodSugarType" to screening.bloodSugarType,
+        "pulse" to screening.pulse,
+        "temperature" to screening.temperature,
+        "oxygenSaturation" to screening.oxygenSaturation,
+        "note" to screening.note,
+        "vhvId" to screening.vhvId,
+        "vhvName" to screening.vhvName,
+        "dataStatus" to screening.dataStatus.name,
+        "updatedAt" to screening.lastModified
+    )
+
+    private fun docToHealthScreening(doc: DocumentSnapshot, personId: Long): com.example.data.HealthScreening? {
+        val uuid = doc.getString("screeningUuid") ?: doc.id
+        val timestamp = doc.getLong("timestamp") ?: return null
+        val status = doc.getString("dataStatus")?.let { runCatching { DataStatus.valueOf(it) }.getOrDefault(DataStatus.NEEDS_REVIEW) } ?: DataStatus.NEEDS_REVIEW
+        return com.example.data.HealthScreening(
+            id = 0,
+            screeningUuid = uuid,
+            personId = personId,
+            personUuid = doc.getString("personUuid") ?: "",
+            villageNo = doc.getString("villageNo") ?: "",
+            timestamp = timestamp,
+            weight = doc.getDouble("weight"),
+            height = doc.getDouble("height"),
+            bmi = doc.getDouble("bmi"),
+            systolic = doc.getLong("systolic")?.toInt(),
+            diastolic = doc.getLong("diastolic")?.toInt(),
+            bloodSugar = doc.getLong("bloodSugar")?.toInt(),
+            bloodSugarType = doc.getString("bloodSugarType") ?: "UNKNOWN",
+            pulse = doc.getLong("pulse")?.toInt(),
+            temperature = doc.getDouble("temperature"),
+            oxygenSaturation = doc.getLong("oxygenSaturation")?.toInt(),
+            note = doc.getString("note"),
+            vhvId = doc.getString("vhvId"),
+            vhvName = doc.getString("vhvName"),
+            dataStatus = status,
+            lastModified = doc.getLong("updatedAt") ?: timestamp
+        )
     }
 
     // =========================================================================
