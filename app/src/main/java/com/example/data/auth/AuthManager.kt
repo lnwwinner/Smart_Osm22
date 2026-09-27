@@ -110,7 +110,7 @@ data class VillageAssignment(
             cachedHealthCenter = prefs.getString("surveyor_health_center", "")
             cachedVhvCardPhotoUrl = prefs.getString("surveyor_vhv_card_photo", null)
 
-            val localUid = prefs.getString("local_user_uid", null) ?: "vhv_local_user_1"
+            val localUid = prefs.getString("local_user_uid", null).orEmpty()
             val displayName = prefs.getString("local_user_name", null)
             val photoUrl = prefs.getString("local_user_photo", null)
 
@@ -231,7 +231,7 @@ data class VillageAssignment(
             val currentProfile = _userProfile.value
             val newName = fullName?.trim()?.takeIf { it.isNotBlank() }
                 ?: currentProfile?.displayName
-                ?: prefs.getString("local_user_name", "ผู้ลงทะเบียน อสม.")
+                ?: prefs.getString("local_user_name", null)
             val newPhoto = photoUrl?.trim()?.takeIf { it.isNotBlank() }
                 ?: currentProfile?.photoUrl
                 ?: prefs.getString("local_user_photo", null)
