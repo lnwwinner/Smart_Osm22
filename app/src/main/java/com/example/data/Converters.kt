@@ -2,6 +2,7 @@ package com.example.data
 
 import androidx.room.TypeConverter
 import java.time.LocalDate
+import com.example.data.PopulationEventType
 
 class Converters {
     @TypeConverter
@@ -39,4 +40,10 @@ class Converters {
 
     @TypeConverter
     fun toDataStatus(value: String): DataStatus = try { DataStatus.valueOf(value) } catch (e: Exception) { DataStatus.UNKNOWN }
+
+    @TypeConverter
+    fun fromPopulationEventType(value: PopulationEventType): String = value.name
+
+    @TypeConverter
+    fun toPopulationEventType(value: String): PopulationEventType = try { PopulationEventType.valueOf(value) } catch (e: Exception) { PopulationEventType.HEALTH_CHECK }
 }
