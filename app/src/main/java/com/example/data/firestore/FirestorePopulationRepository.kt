@@ -375,7 +375,8 @@ open class FirestorePopulationRepository(
         person: Person,
         householdUuid: String,
         householdHouseNo: String = "",
-        userUid: String? = null
+        userUid: String? = null,
+        villageNo: String = ""
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             if (person.personUuid.isBlank()) {
@@ -389,8 +390,21 @@ open class FirestorePopulationRepository(
             }
 
             val firestore = getFirestore()
+            
+            var finalVillageNo = villageNo
+            if (finalVillageNo.isBlank()) {
+                try {
+                    val hSnapshot = firestore.collection(COLLECTION_HOUSEHOLDS).document(householdUuid).get().await()
+                    if (hSnapshot.exists()) {
+                        finalVillageNo = hSnapshot.getString("villageNo") ?: ""
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not fetch household villageNo for person: ${e.message}")
+                }
+            }
+
             val docRef = firestore.collection(COLLECTION_PERSONS).document(person.personUuid)
-            val data = personToMap(person, householdUuid, householdHouseNo, userUid)
+            val data = personToMap(person, householdUuid, householdHouseNo, userUid, finalVillageNo)
 
             docRef.set(data, SetOptions.merge()).await()
             Log.d(TAG, "Successfully saved person ${person.personUuid} (${person.fullName})")
@@ -428,10 +442,11 @@ open class FirestorePopulationRepository(
             opsInBatch++
 
             // 2. Add persons
+            val finalVillageNo = household.villageNo
             for (p in persons) {
                 if (p.personUuid.isBlank()) continue
                 val pRef = firestore.collection(COLLECTION_PERSONS).document(p.personUuid)
-                batch.set(pRef, personToMap(p, household.householdUuid, household.houseNo, userUid), SetOptions.merge())
+                batch.set(pRef, personToMap(p, household.householdUuid, household.houseNo, userUid, finalVillageNo), SetOptions.merge())
                 opsInBatch++
 
                 if (opsInBatch >= BATCH_SIZE_LIMIT) {
@@ -627,12 +642,14 @@ open class FirestorePopulationRepository(
         person: Person,
         householdUuid: String,
         householdHouseNo: String = "",
-        userUid: String? = null
+        userUid: String? = null,
+        villageNo: String = ""
     ): Map<String, Any?> {
         return mapOf(
             "personUuid" to person.personUuid,
             "householdUuid" to householdUuid,
             "householdHouseNo" to householdHouseNo,
+            "villageNo" to villageNo,
             "nationalId" to person.nationalId,
             "fullName" to person.fullName,
             "gender" to person.gender.name,

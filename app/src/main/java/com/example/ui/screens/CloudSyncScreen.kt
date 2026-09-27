@@ -2,11 +2,16 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,8 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.sync.SyncState
 import com.example.ui.components.ThemeQuickToggleButton
-import com.example.ui.theme.EmeraldPrimary
-import com.example.ui.theme.MintAccent
+import com.example.ui.theme.*
 import com.example.viewmodel.PersonViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -336,7 +340,343 @@ fun CloudSyncScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Section 3: Google Sheets Sync & Import
+            Text(
+                text = "3. การนำเข้าและวิเคราะห์ข้อมูลผ่าน Google Sheets (Google Sheets Integration)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = EmeraldPrimary
+            )
+
+            var spreadsheetInput by remember { mutableStateOf("") }
+            var tokenInput by remember { mutableStateOf("") }
+            val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Text(
+                        text = "กรอก Spreadsheet URL หรือ Spreadsheet ID เพื่อนำข้อมูลเข้าสู่ระบบวิเคราะห์ประเมินความถูกต้อง (Validation Plan) ก่อนนำเขียนลงหน่วยความจำจริง",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = spreadsheetInput,
+                        onValueChange = { spreadsheetInput = it },
+                        label = { Text("Google Spreadsheet URL หรือ ID") },
+                        placeholder = { Text("https://docs.google.com/spreadsheets/d/...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Filled.GridOn, contentDescription = null, tint = EmeraldPrimary) }
+                    )
+
+                    OutlinedTextField(
+                        value = tokenInput,
+                        onValueChange = { tokenInput = it },
+                        label = { Text("OAuth Access Token (หากไฟล์ไม่ได้เปิดเผยต่อสาธารณะ / Optional)") },
+                        placeholder = { Text("ya29.a0Ac...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Filled.VpnKey, contentDescription = null, tint = EmeraldPrimary) }
+                    )
+
+                    Button(
+                        onClick = {
+                            if (spreadsheetInput.isBlank()) {
+                                isError = true
+                                actionMessage = "กรุณากรอก Spreadsheet URL หรือ ID"
+                                return@Button
+                            }
+                            viewModel.loadGoogleSheetsImportPlan(
+                                context = context,
+                                spreadsheetId = spreadsheetInput,
+                                accessToken = tokenInput.takeIf { it.isNotBlank() }
+                            ) { success, message ->
+                                isError = !success
+                                actionMessage = message
+                            }
+                        },
+                        enabled = !isImporting,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                    ) {
+                        if (isImporting) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("กำลังดาวน์โหลดและตรวจทานข้อมูล...", fontWeight = FontWeight.Bold)
+                        } else {
+                            Icon(Icons.Filled.CloudDownload, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("นำเข้าและเปิดแผนตรวจสอบความถูกต้อง", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    // Import Plan Validation Review Dialog
+    val importPlan by viewModel.importPlan.collectAsStateWithLifecycle()
+    val importResult by viewModel.importResult.collectAsStateWithLifecycle()
+
+    if (importPlan != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearImportPlan() },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.UploadFile, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("ตรวจสอบแผนการนำเข้า", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "พบคอมมิตข้อมูลทั้งหมด ${importPlan!!.totalRows} แถว กรุณาตรวจสอบแผนการบันทึกก่อนยืนยันเพื่อความถูกต้องของข้อมูล",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = OnSurfaceSecondary
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = StatusVerifiedBg.copy(alpha = 0.2f)),
+                            border = BorderStroke(1.dp, StatusVerifiedBg)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("เพิ่มใหม่", style = MaterialTheme.typography.labelSmall, color = StatusVerifiedFg)
+                                Text("${importPlan!!.insertCount}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = StatusVerifiedFg)
+                            }
+                        }
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondaryContainer)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("อัปเดต", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                                Text("${importPlan!!.updateCount}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        Card(
+                            modifier = Modifier.weight(1.2f),
+                            colors = CardDefaults.cardColors(containerColor = StatusNeedsReviewBg.copy(alpha = 0.2f)),
+                            border = BorderStroke(1.dp, StatusNeedsReviewBg)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("ต้องตรวจ", style = MaterialTheme.typography.labelSmall, color = StatusNeedsReviewFg)
+                                Text("${importPlan!!.needsReviewCount}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = StatusNeedsReviewFg)
+                            }
+                        }
+                    }
+
+                    if (importPlan!!.errors.isNotEmpty()) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = StatusDeadBg.copy(alpha = 0.3f)),
+                            border = BorderStroke(1.dp, StatusDeadBg),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    "พบข้อผิดพลาดร้ายแรง (${importPlan!!.errors.size} รายการ):",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = StatusDeadFg,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Box(modifier = Modifier.heightIn(max = 80.dp)) {
+                                    androidx.compose.foundation.lazy.LazyColumn {
+                                        items(importPlan!!.errors) { err ->
+                                            Text(
+                                                "• แถวที่ ${err.rowNumber}: ${err.reason}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = StatusDeadFg
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    val itemsNeedingReview = importPlan!!.plannedItems.filter { it.action == com.example.domain.ImportAction.NEEDS_REVIEW }
+                    if (itemsNeedingReview.isNotEmpty()) {
+                        Text(
+                            "รายการประชากรที่ติดข้อสงสัยและต้องการการตรวจสอบก่อน:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = StatusNeedsReviewFg
+                        )
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = SurfaceSubtle),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(modifier = Modifier.heightIn(max = 180.dp)) {
+                                androidx.compose.foundation.lazy.LazyColumn(
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    items(itemsNeedingReview) { item ->
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                                                .padding(8.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    "แถวที่ ${item.rowNum}: ${item.personData.fullName}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    "บ้านเลขที่ ${item.householdData.houseNo}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = OnSurfaceSecondary
+                                                )
+                                            }
+                                            item.reviewReasons.forEach { reason ->
+                                                Text(
+                                                    "⚠️ $reason",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = StatusNeedsReviewFg,
+                                                    modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = StatusVerifiedBg.copy(alpha = 0.2f)),
+                            border = BorderStroke(1.dp, StatusVerifiedBg),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "🎉 ตรวจสอบแล้วไม่มีปัญหาความขัดแย้งของข้อมูล ทุกรายการสามารถบันทึกได้ทันที",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = StatusVerifiedFg
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.commitCurrentImportPlan { success, msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text("ยืนยันการนำเข้า", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { viewModel.clearImportPlan() }
+                ) {
+                    Text("ยกเลิก", color = OnSurfaceSecondary)
+                }
+            }
+        )
+    }
+
+    if (importResult != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearImportResult() },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(StatusVerifiedBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.UploadFile, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("ผลการนำเข้าข้อมูล", style = MaterialTheme.typography.titleLarge)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("ทั้งหมด: ${importResult!!.totalRows} รายการ", fontWeight = FontWeight.Bold)
+                    Row {
+                        Text("• สำเร็จ: ", color = OnSurfaceSecondary)
+                        Text("${importResult!!.successCount} รายการ", color = EmeraldPrimary, fontWeight = FontWeight.Bold)
+                    }
+                    Row {
+                        Text("• ผิดพลาด: ", color = OnSurfaceSecondary)
+                        Text("${importResult!!.failedCount} รายการ", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Divider(modifier = Modifier.padding(vertical = 4.dp), color = HairlineBorder)
+                    Text("รายละเอียดจำแนกข้อผิดพลาด:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("- ข้อมูลซ้ำ: ${importResult!!.duplicateCount}", style = MaterialTheme.typography.bodySmall)
+                    Text("- เลขบัตร ปชช. ไม่ถูกต้อง: ${importResult!!.invalidNationalIdCount}", style = MaterialTheme.typography.bodySmall)
+                    Text("- วันเกิดไม่ถูกต้อง: ${importResult!!.invalidBirthDateCount}", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.clearImportResult() },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                ) {
+                    Text("ตกลง", color = Color.White)
+                }
+            }
+        )
     }
 }
 

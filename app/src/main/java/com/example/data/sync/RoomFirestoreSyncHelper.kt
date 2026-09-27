@@ -125,7 +125,12 @@ open class RoomFirestoreSyncHelper(
      * skipping any records that have deletion tombstones.
      * Uses batch writes for high efficiency and atomic updates, respecting Firestore batch limits (max 500).
      */
-    suspend fun syncRoomToFirestore(): Result<SyncResult> = withContext(Dispatchers.IO) {
+    /**
+     * Uploads all local Room households and registered citizens to Cloud Firestore,
+     * skipping any records that have deletion tombstones.
+     * Uses batch writes for high efficiency and atomic updates, respecting Firestore batch limits (max 500).
+     */
+    suspend fun syncRoomToFirestore(villageNo: String? = null): Result<SyncResult> = withContext(Dispatchers.IO) {
         try {
             _syncState.value = SyncState.Syncing("กำลังเตรียมข้อมูลจาก Room Database...")
             val firestore = checkFirebaseConfiguredOrError()
@@ -135,16 +140,27 @@ open class RoomFirestoreSyncHelper(
                 return@withContext Result.failure(err)
             }
 
+            // Retrieve target active villageNo for partitioning
+            val activeVillageNo = villageNo ?: try {
+                context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    .getString("surveyor_village_no", null)
+            } catch (e: Exception) {
+                null
+            }
+
             // Fetch tombstones to prevent re-uploading deleted records
             val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
             val deletedUuids = tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
 
-            val households = repository.getAllHouseholds().filter { !deletedUuids.contains(it.householdUuid) }
-            val persons = repository.getAllPersonsList().filter { !deletedUuids.contains(it.personUuid) }
+            val households = repository.getAllHouseholds()
+                .filter { !deletedUuids.contains(it.householdUuid) && (activeVillageNo == null || it.villageNo == activeVillageNo) }
+            val persons = repository.getAllPersonsList()
+                .filter { !deletedUuids.contains(it.personUuid) }
 
-            _syncState.value = SyncState.Syncing("กำลังส่งข้อมูล ${households.size} ครัวเรือน และ ${persons.size} คน ไปยัง Firestore...")
+            _syncState.value = SyncState.Syncing("กำลังส่งข้อมูล ${households.size} ครัวเรือน และประชากรไปยัง Firestore...")
 
             val householdMap = households.associateBy { it.id }
+            val filteredPersons = persons.filter { householdMap.containsKey(it.householdId) }
 
             // Write households and persons in batches (Firestore max 500 per batch, we use 400 safely)
             var batch = firestore.batch()
@@ -166,10 +182,10 @@ open class RoomFirestoreSyncHelper(
                 }
             }
 
-            for (p in persons) {
+            for (p in filteredPersons) {
                 val parentHousehold = householdMap[p.householdId] ?: continue
                 val docRef = firestore.collection(COLLECTION_PERSONS).document(p.personUuid)
-                val data = personToMap(p, parentHousehold.householdUuid, parentHousehold.houseNo)
+                val data = personToMap(p, parentHousehold.householdUuid, parentHousehold.houseNo, parentHousehold.villageNo)
                 batch.set(docRef, data, SetOptions.merge())
                 opsInBatch++
                 personsSynced++
@@ -240,7 +256,7 @@ open class RoomFirestoreSyncHelper(
 
             for (p in validPersons) {
                 val pRef = firestore.collection(COLLECTION_PERSONS).document(p.personUuid)
-                batch.set(pRef, personToMap(p, household.householdUuid, household.houseNo), SetOptions.merge())
+                batch.set(pRef, personToMap(p, household.householdUuid, household.houseNo, household.villageNo), SetOptions.merge())
             }
 
             batch.commit().await()
@@ -267,7 +283,9 @@ open class RoomFirestoreSyncHelper(
     @androidx.annotation.VisibleForTesting
     internal open suspend fun performPersonSave(person: Person, householdUuid: String, householdHouseNo: String) {
         val pRef = getFirestore().collection(COLLECTION_PERSONS).document(person.personUuid)
-        pRef.set(personToMap(person, householdUuid, householdHouseNo), SetOptions.merge()).await()
+        val household = repository.getHouseholdByUuid(householdUuid)
+        val villageNo = household?.villageNo ?: ""
+        pRef.set(personToMap(person, householdUuid, householdHouseNo, villageNo), SetOptions.merge()).await()
     }
 
     /**
@@ -316,10 +334,14 @@ open class RoomFirestoreSyncHelper(
             val timestamp = System.currentTimeMillis()
             val batch = firestore.batch()
 
+            // Fetch villageNo for regional tombstone rules
+            val household = repository.getHouseholdByUuid(householdUuid)
+            val villageNo = household?.villageNo ?: ""
+
             // 1. Household tombstone and delete
             val hTombstoneRef = firestore.collection(COLLECTION_TOMBSTONES).document("household_$householdUuid")
             val hRef = firestore.collection(COLLECTION_HOUSEHOLDS).document(householdUuid)
-            batch.set(hTombstoneRef, mapOf("uuid" to householdUuid, "type" to "household", "deletedAt" to timestamp))
+            batch.set(hTombstoneRef, mapOf("uuid" to householdUuid, "type" to "household", "deletedAt" to timestamp, "villageNo" to villageNo))
             batch.delete(hRef)
 
             // 2. Persons tombstones and deletes
@@ -327,7 +349,7 @@ open class RoomFirestoreSyncHelper(
                 if (pUuid.isNotBlank()) {
                     val pTombstoneRef = firestore.collection(COLLECTION_TOMBSTONES).document("person_$pUuid")
                     val pRef = firestore.collection(COLLECTION_PERSONS).document(pUuid)
-                    batch.set(pTombstoneRef, mapOf("uuid" to pUuid, "type" to "person", "deletedAt" to timestamp))
+                    batch.set(pTombstoneRef, mapOf("uuid" to pUuid, "type" to "person", "deletedAt" to timestamp, "villageNo" to villageNo))
                     batch.delete(pRef)
                 }
             }
@@ -348,11 +370,15 @@ open class RoomFirestoreSyncHelper(
             val firestore = getFirestore()
             val batch = firestore.batch()
 
+            val person = repository.getPersonByUuid(personUuid)
+            val household = person?.let { repository.getHouseholdById(it.householdId) }
+            val villageNo = household?.villageNo ?: ""
+
             val pRef = firestore.collection(COLLECTION_PERSONS).document(personUuid)
             batch.delete(pRef)
 
             val pTombstoneRef = firestore.collection(COLLECTION_TOMBSTONES).document("person_$personUuid")
-            batch.set(pTombstoneRef, mapOf("uuid" to personUuid, "type" to "person", "deletedAt" to System.currentTimeMillis()))
+            batch.set(pTombstoneRef, mapOf("uuid" to personUuid, "type" to "person", "deletedAt" to System.currentTimeMillis(), "villageNo" to villageNo))
 
             batch.commit().await()
             Result.success(Unit)
@@ -370,7 +396,7 @@ open class RoomFirestoreSyncHelper(
      * Fetches all registered data from Cloud Firestore and updates the local Room database,
      * skipping any records marked with deletion tombstones and strictly using UUID matching.
      */
-    suspend fun syncFirestoreToRoom(): Result<SyncResult> = withContext(Dispatchers.IO) {
+    suspend fun syncFirestoreToRoom(villageNo: String? = null): Result<SyncResult> = withContext(Dispatchers.IO) {
         try {
             _syncState.value = SyncState.Syncing("กำลังดึงข้อมูลจาก Cloud Firestore...")
             val firestore = checkFirebaseConfiguredOrError()
@@ -380,22 +406,43 @@ open class RoomFirestoreSyncHelper(
                 return@withContext Result.failure(err)
             }
 
+            // Retrieve target active villageNo for partitioning
+            val activeVillageNo = villageNo ?: try {
+                context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    .getString("surveyor_village_no", null)
+            } catch (e: Exception) {
+                null
+            }
+
             // Fetch tombstones
             val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
             val deletedUuids = tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
 
             // Remove stale local Room records that have been deleted in Cloud
-            val allLocalHouseholdsToDelete = repository.getAllHouseholds().filter { deletedUuids.contains(it.householdUuid) }
+            val allLocalHouseholdsToDelete = repository.getAllHouseholds()
+                .filter { deletedUuids.contains(it.householdUuid) && (activeVillageNo == null || it.villageNo == activeVillageNo) }
             for (h in allLocalHouseholdsToDelete) {
                 repository.deleteHousehold(h)
             }
-            val allLocalPersonsToDelete = repository.getAllPersonsList().filter { deletedUuids.contains(it.personUuid) }
+            
+            val localHouseholdMap = repository.getAllHouseholds().associateBy { it.id }
+            val allLocalPersonsToDelete = repository.getAllPersonsList()
+                .filter { deletedUuids.contains(it.personUuid) && (activeVillageNo == null || (localHouseholdMap[it.householdId]?.villageNo == activeVillageNo)) }
             for (p in allLocalPersonsToDelete) {
                 repository.delete(p)
             }
 
-            val householdDocs = firestore.collection(COLLECTION_HOUSEHOLDS).get().await()
-            val personDocs = firestore.collection(COLLECTION_PERSONS).get().await()
+            val householdDocs = if (activeVillageNo != null) {
+                firestore.collection(COLLECTION_HOUSEHOLDS).whereEqualTo("villageNo", activeVillageNo).get().await()
+            } else {
+                firestore.collection(COLLECTION_HOUSEHOLDS).get().await()
+            }
+
+            val personDocs = if (activeVillageNo != null) {
+                firestore.collection(COLLECTION_PERSONS).whereEqualTo("villageNo", activeVillageNo).get().await()
+            } else {
+                firestore.collection(COLLECTION_PERSONS).get().await()
+            }
 
             _syncState.value = SyncState.Syncing("กำลังนำเข้าข้อมูล เข้าสู่ Room...")
 
@@ -468,14 +515,14 @@ open class RoomFirestoreSyncHelper(
     /**
      * Bidirectional synchronization: Pulls cloud records to Room, then pushes local records to Firestore.
      */
-    suspend fun bidirectionalSync(): Result<SyncResult> = withContext(Dispatchers.IO) {
+    suspend fun bidirectionalSync(villageNo: String? = null): Result<SyncResult> = withContext(Dispatchers.IO) {
         try {
             _syncState.value = SyncState.Syncing("เริ่มการซิงค์แบบ 2 ทาง (Pull & Push)...")
-            val pullResult = syncFirestoreToRoom()
+            val pullResult = syncFirestoreToRoom(villageNo)
             if (pullResult.isFailure) {
                 return@withContext pullResult
             }
-            val pushResult = syncRoomToFirestore()
+            val pushResult = syncRoomToFirestore(villageNo)
             pushResult
         } catch (e: Exception) {
             Log.e(TAG, "Error during bidirectional sync", e)
@@ -505,11 +552,12 @@ open class RoomFirestoreSyncHelper(
         )
     }
 
-    private fun personToMap(person: Person, householdUuid: String, householdHouseNo: String): Map<String, Any?> {
+    private fun personToMap(person: Person, householdUuid: String, householdHouseNo: String, villageNo: String = ""): Map<String, Any?> {
         return mapOf(
             "personUuid" to person.personUuid,
             "householdUuid" to householdUuid,
             "householdHouseNo" to householdHouseNo,
+            "villageNo" to villageNo,
             "nationalId" to person.nationalId,
             "fullName" to person.fullName,
             "gender" to person.gender.name,

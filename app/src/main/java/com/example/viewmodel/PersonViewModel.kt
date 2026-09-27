@@ -645,6 +645,38 @@ class PersonViewModel(
         }
     }
 
+    private val googleSheetsService = com.example.domain.GoogleSheetsService()
+
+    fun loadGoogleSheetsImportPlan(
+        context: Context,
+        spreadsheetId: String,
+        accessToken: String?,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        if (_isImporting.value) return
+        viewModelScope.launch {
+            _isImporting.value = true
+            try {
+                val result = googleSheetsService.downloadSpreadsheetAsXlsx(spreadsheetId, accessToken)
+                if (result.isSuccess) {
+                    val inputStream = result.getOrThrow()
+                    val plan = excelImportUseCase.createImportPlan(inputStream)
+                    _importPlan.value = plan
+                    onComplete(true, "สร้างแผนการนำเข้าจาก Google Sheets สำเร็จ (${plan.plannedItems.size} รายการ)")
+                } else {
+                    val ex = result.exceptionOrNull()
+                    val errorMsg = ex?.message ?: "ไม่สามารถดาวน์โหลดไฟล์ได้"
+                    onComplete(false, errorMsg)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onComplete(false, "เกิดข้อผิดพลาด: ${e.message}")
+            } finally {
+                _isImporting.value = false
+            }
+        }
+    }
+
     fun exportExcelData(context: Context, uri: Uri, onComplete: (Boolean, String) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
             try {

@@ -283,6 +283,38 @@ open class AuthManager(
             )
             _localProfile = updatedProfile
             _userProfile.value = updatedProfile
+
+            // Sync user profile to Firestore users collection
+            try {
+                if (updatedProfile.uid.isNotBlank()) {
+                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance("ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f")
+                    val userMap = mapOf(
+                        "uid" to updatedProfile.uid,
+                        "displayName" to updatedProfile.displayName,
+                        "email" to updatedProfile.email,
+                        "villageNo" to updatedProfile.villageNo,
+                        "villageName" to updatedProfile.villageName,
+                        "subdistrict" to updatedProfile.subdistrict,
+                        "district" to updatedProfile.district,
+                        "province" to updatedProfile.province,
+                        "roleTitle" to updatedProfile.roleTitle,
+                        "vhvCardId" to updatedProfile.vhvCardId,
+                        "citizenId" to updatedProfile.citizenId,
+                        "healthCenter" to updatedProfile.healthCenter,
+                        "updatedAt" to System.currentTimeMillis()
+                    )
+                    firestore.collection("users").document(updatedProfile.uid)
+                        .set(userMap, com.google.firebase.firestore.SetOptions.merge())
+                        .addOnSuccessListener {
+                            Log.d(TAG, "User profile successfully synced to Firestore: ${updatedProfile.uid}")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e(TAG, "Failed to sync user profile to Firestore", e)
+                        }
+                }
+            } catch (fsEx: Exception) {
+                Log.w(TAG, "Firestore is unavailable for user profile sync: ${fsEx.message}")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save surveyor profile", e)
         }
@@ -291,7 +323,7 @@ open class AuthManager(
     private fun updateUser(user: FirebaseUser?) {
         _currentUser.value = user
         if (user != null) {
-            _userProfile.value = UserProfile.fromFirebaseUser(
+            val profile = UserProfile.fromFirebaseUser(
                 user = user,
                 villageNo = cachedVillageNo,
                 villageName = cachedVillageName,
@@ -305,6 +337,39 @@ open class AuthManager(
                 healthCenter = cachedHealthCenter,
                 vhvCardPhotoUrl = cachedVhvCardPhotoUrl
             )
+            _userProfile.value = profile
+
+            // Sync user profile to Firestore users collection
+            try {
+                if (profile.uid.isNotBlank()) {
+                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance("ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f")
+                    val userMap = mapOf(
+                        "uid" to profile.uid,
+                        "displayName" to profile.displayName,
+                        "email" to profile.email,
+                        "villageNo" to profile.villageNo,
+                        "villageName" to profile.villageName,
+                        "subdistrict" to profile.subdistrict,
+                        "district" to profile.district,
+                        "province" to profile.province,
+                        "roleTitle" to profile.roleTitle,
+                        "vhvCardId" to profile.vhvCardId,
+                        "citizenId" to profile.citizenId,
+                        "healthCenter" to profile.healthCenter,
+                        "updatedAt" to System.currentTimeMillis()
+                    )
+                    firestore.collection("users").document(profile.uid)
+                        .set(userMap, com.google.firebase.firestore.SetOptions.merge())
+                        .addOnSuccessListener {
+                            Log.d(TAG, "User profile auto-synced to Firestore on update: ${profile.uid}")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e(TAG, "Failed to auto-sync user profile to Firestore on update", e)
+                        }
+                }
+            } catch (fsEx: Exception) {
+                Log.w(TAG, "Firestore is unavailable for user profile auto-sync: ${fsEx.message}")
+            }
         } else if (_localProfile != null) {
             _userProfile.value = _localProfile
         } else {

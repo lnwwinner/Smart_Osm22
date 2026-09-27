@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to get current user's profile data
+    function getUserProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user has access to a specific village
+    function hasVillageAccess(villageNo) {
+      return isAuthenticated() && getUserProfile().villageNo == villageNo;
+    }
+
+    // 1. Users collection
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // 2. Households collection
+    match /households/{householdUuid} {
+      allow read, write: if isAuthenticated() && 
+        (resource == null || hasVillageAccess(resource.data.villageNo)) &&
+        (request.resource == null || hasVillageAccess(request.resource.data.villageNo));
+    }
+
+    // 3. Persons collection
+    match /persons/{personUuid} {
+      allow read, write: if isAuthenticated() && 
+        (resource == null || hasVillageAccess(resource.data.villageNo)) &&
+        (request.resource == null || hasVillageAccess(request.resource.data.villageNo));
+    }
+
+    // 4. Tombstones collection
+    match /tombstones/{tombstoneId} {
+      allow read, write: if isAuthenticated() && 
+        (resource == null || hasVillageAccess(resource.data.villageNo)) &&
+        (request.resource == null || hasVillageAccess(request.resource.data.villageNo));
+    }
+    
+    // 5. VHV Members collection
+    match /vhv_members/{memberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (resource == null || hasVillageAccess(resource.data.villageNo)) && (request.resource == null || hasVillageAccess(request.resource.data.villageNo));
+    }
+  }
+}
