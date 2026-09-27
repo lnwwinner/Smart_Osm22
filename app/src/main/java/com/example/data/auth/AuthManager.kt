@@ -211,14 +211,14 @@ data class VillageAssignment(
         _userProfile.value = profile
     }
 
-    open fun saveSurveyorProfile(
+    open suspend fun saveSurveyorProfile(
         context: Context,
         fullName: String? = null,
         villageNo: String,
         villageName: String,
-        subdistrict: String = "ต.ป่าขะ",
-        district: String = "อ.บ้านนา",
-        province: String = "จ.นครนายก",
+        subdistrict: String = "",
+        district: String = "",
+        province: String = "",
         phone: String? = null,
         role: String? = "อสม. ประจำหมู่บ้าน",
         vhvCardId: String? = null,
@@ -226,22 +226,95 @@ data class VillageAssignment(
         healthCenter: String? = null,
         photoUrl: String? = null,
         vhvCardPhotoUrl: String? = null
-    ) {
+    ): Result<UserProfile> = withContext(Dispatchers.IO) {
         try {
-            val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-            cachedVillageNo = villageNo.trim()
-            cachedVillageName = villageName.trim()
-            cachedSubdistrict = subdistrict.trim().ifBlank { "ต.ป่าขะ" }
-            cachedDistrict = district.trim().ifBlank { "อ.บ้านนา" }
-            cachedProvince = province.trim().ifBlank { "จ.นครนายก" }
-            cachedPhoneNumber = phone?.trim()?.takeIf { it.isNotBlank() }
-            cachedRoleTitle = role?.trim()?.takeIf { it.isNotBlank() } ?: "อสม. ประจำหมู่บ้าน"
-            if (!vhvCardId.isNullOrBlank()) cachedVhvCardId = vhvCardId.trim()
-            if (!citizenId.isNullOrBlank()) cachedCitizenId = citizenId.trim()
-            if (!healthCenter.isNullOrBlank()) cachedHealthCenter = healthCenter.trim()
-            if (!vhvCardPhotoUrl.isNullOrBlank()) cachedVhvCardPhotoUrl = vhvCardPhotoUrl.trim()
+            val user = firebaseAuth?.currentUser
+                ?: return@withContext Result.failure(IllegalStateException("ยังไม่ได้เข้าสู่ระบบ Firebase"))
+            if (user.isAnonymous) {
+                return@withContext Result.failure(IllegalStateException("บัญชี Anonymous ไม่สามารถบันทึกโปรไฟล์ อสม. ได้"))
+            }
 
-            val editor = prefs.edit()
+            val assignment = getAssignedVillage().getOrElse {
+                return@withContext Result.failure(it)
+            }
+            if (assignment.villageNo != villageNo.trim()) {
+                return@withContext Result.failure(
+                    IllegalStateException("พื้นที่รับผิดชอบไม่ตรงกับพื้นที่ที่ได้รับอนุมัติ")
+                )
+            }
+
+            val resolvedVillageNo = assignment.villageNo
+            val resolvedVillageName = assignment.villageName.ifBlank { villageName.trim() }
+            val resolvedSubdistrict = assignment.subdistrict.ifBlank { subdistrict.trim() }
+            val resolvedDistrict = assignment.district.ifBlank { district.trim() }
+            val resolvedProvince = assignment.province.ifBlank { province.trim() }
+
+            val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            val currentProfile = _userProfile.value
+            val newName = fullName?.trim()?.takeIf { it.isNotBlank() }
+                ?: currentProfile?.displayName
+                ?: prefs.getString("local_user_name", "ผู้ลงทะเบียน อสม.")
+            val newPhoto = photoUrl?.trim()?.takeIf { it.isNotBlank() }
+                ?: currentProfile?.photoUrl
+                ?: prefs.getString("local_user_photo", null)
+
+            val updatedProfile = UserProfile(
+                uid = user.uid,
+                displayName = newName,
+                email = currentProfile?.email ?: user.email,
+                photoUrl = newPhoto,
+                isEmailVerified = user.isEmailVerified,
+                phoneNumber = phone?.trim()?.takeIf { it.isNotBlank() },
+                isAnonymous = user.isAnonymous,
+                providerId = currentProfile?.providerId ?: user.providerData.firstOrNull()?.providerId,
+                providerIds = currentProfile?.providerIds ?: user.providerData.mapNotNull { it.providerId }.distinct(),
+                creationTimestamp = currentProfile?.creationTimestamp ?: System.currentTimeMillis(),
+                lastSignInTimestamp = System.currentTimeMillis(),
+                villageNo = resolvedVillageNo,
+                villageName = resolvedVillageName,
+                subdistrict = resolvedSubdistrict,
+                district = resolvedDistrict,
+                province = resolvedProvince,
+                roleTitle = role?.trim()?.takeIf { it.isNotBlank() } ?: "อสม. ประจำหมู่บ้าน",
+                vhvCardId = vhvCardId?.trim()?.takeIf { it.isNotBlank() } ?: cachedVhvCardId,
+                citizenId = citizenId?.trim()?.takeIf { it.isNotBlank() } ?: cachedCitizenId,
+                healthCenter = healthCenter?.trim()?.takeIf { it.isNotBlank() } ?: cachedHealthCenter,
+                vhvCardPhotoUrl = vhvCardPhotoUrl?.trim()?.takeIf { it.isNotBlank() } ?: cachedVhvCardPhotoUrl
+            )
+
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+            val userMap = mapOf(
+                "uid" to updatedProfile.uid,
+                "displayName" to updatedProfile.displayName,
+                "email" to updatedProfile.email,
+                "villageNo" to updatedProfile.villageNo,
+                "villageName" to updatedProfile.villageName,
+                "subdistrict" to updatedProfile.subdistrict,
+                "district" to updatedProfile.district,
+                "province" to updatedProfile.province,
+                "roleTitle" to updatedProfile.roleTitle,
+                "vhvCardId" to updatedProfile.vhvCardId,
+                "citizenId" to updatedProfile.citizenId,
+                "healthCenter" to updatedProfile.healthCenter,
+                "updatedAt" to System.currentTimeMillis()
+            )
+            firestore.collection("users").document(updatedProfile.uid)
+                .set(userMap, com.google.firebase.firestore.SetOptions.merge())
+                .await()
+
+            cachedVillageNo = resolvedVillageNo
+            cachedVillageName = resolvedVillageName
+            cachedSubdistrict = resolvedSubdistrict
+            cachedDistrict = resolvedDistrict
+            cachedProvince = resolvedProvince
+            cachedPhoneNumber = updatedProfile.phoneNumber
+            cachedRoleTitle = updatedProfile.roleTitle
+            cachedVhvCardId = updatedProfile.vhvCardId
+            cachedCitizenId = updatedProfile.citizenId
+            cachedHealthCenter = updatedProfile.healthCenter
+            cachedVhvCardPhotoUrl = updatedProfile.vhvCardPhotoUrl
+
+            prefs.edit()
                 .putString("surveyor_village_no", cachedVillageNo)
                 .putString("surveyor_village_name", cachedVillageName)
                 .putString("surveyor_subdistrict", cachedSubdistrict)
@@ -254,79 +327,22 @@ data class VillageAssignment(
                 .putString("surveyor_health_center", cachedHealthCenter)
                 .putString("surveyor_vhv_card_photo", cachedVhvCardPhotoUrl)
                 .putBoolean("surveyor_setup_completed", true)
+                .apply()
 
-            fullName?.trim()?.takeIf { it.isNotBlank() }?.let { name ->
-                editor.putString("local_user_name", name)
+            fullName?.trim()?.takeIf { it.isNotBlank() }?.let {
+                prefs.edit().putString("local_user_name", it).apply()
             }
-            photoUrl?.trim()?.takeIf { it.isNotBlank() }?.let { pic ->
-                editor.putString("local_user_photo", pic)
+            photoUrl?.trim()?.takeIf { it.isNotBlank() }?.let {
+                prefs.edit().putString("local_user_photo", it).apply()
             }
-            editor.apply()
 
-            val currentProfile = _userProfile.value
-            val newUid = currentProfile?.uid ?: prefs.getString("local_user_uid", "vhv_local_user_1") ?: "vhv_local_user_1"
-            val newName = fullName?.trim()?.takeIf { it.isNotBlank() } ?: currentProfile?.displayName ?: prefs.getString("local_user_name", "ผู้ลงทะเบียน อสม.")
-            val newPhoto = photoUrl?.trim()?.takeIf { it.isNotBlank() } ?: currentProfile?.photoUrl ?: prefs.getString("local_user_photo", null)
-
-            val updatedProfile = UserProfile(
-                uid = newUid,
-                displayName = newName,
-                email = currentProfile?.email ?: prefs.getString("local_user_email", null),
-                photoUrl = newPhoto,
-                isEmailVerified = true,
-                phoneNumber = cachedPhoneNumber,
-                isAnonymous = currentProfile?.isAnonymous ?: false,
-                providerId = currentProfile?.providerId ?: "local",
-                providerIds = currentProfile?.providerIds ?: listOf("local"),
-                creationTimestamp = currentProfile?.creationTimestamp ?: System.currentTimeMillis(),
-                lastSignInTimestamp = System.currentTimeMillis(),
-                villageNo = cachedVillageNo,
-                villageName = cachedVillageName,
-                subdistrict = cachedSubdistrict,
-                district = cachedDistrict,
-                province = cachedProvince,
-                roleTitle = cachedRoleTitle,
-                vhvCardId = cachedVhvCardId,
-                citizenId = cachedCitizenId,
-                healthCenter = cachedHealthCenter,
-                vhvCardPhotoUrl = cachedVhvCardPhotoUrl
-            )
             _localProfile = updatedProfile
             _userProfile.value = updatedProfile
-
-            // Sync user profile to Firestore users collection
-            try {
-                if (updatedProfile.uid.isNotBlank()) {
-                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    val userMap = mapOf(
-                        "uid" to updatedProfile.uid,
-                        "displayName" to updatedProfile.displayName,
-                        "email" to updatedProfile.email,
-                        "villageNo" to updatedProfile.villageNo,
-                        "villageName" to updatedProfile.villageName,
-                        "subdistrict" to updatedProfile.subdistrict,
-                        "district" to updatedProfile.district,
-                        "province" to updatedProfile.province,
-                        "roleTitle" to updatedProfile.roleTitle,
-                        "vhvCardId" to updatedProfile.vhvCardId,
-                        "citizenId" to updatedProfile.citizenId,
-                        "healthCenter" to updatedProfile.healthCenter,
-                        "updatedAt" to System.currentTimeMillis()
-                    )
-                    firestore.collection("users").document(updatedProfile.uid)
-                        .set(userMap, com.google.firebase.firestore.SetOptions.merge())
-                        .addOnSuccessListener {
-                            Log.d(TAG, "User profile successfully synced to Firestore: ${updatedProfile.uid}")
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e(TAG, "Failed to sync user profile to Firestore", e)
-                        }
-                }
-            } catch (fsEx: Exception) {
-                Log.w(TAG, "Firestore is unavailable for user profile sync: ${fsEx.message}")
-            }
+            Log.d(TAG, "User profile successfully synced to Firestore: " + updatedProfile.uid)
+            Result.success(updatedProfile)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save surveyor profile", e)
+            Result.failure(e)
         }
     }
 
