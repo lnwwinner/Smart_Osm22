@@ -18,9 +18,17 @@ service cloud.firestore {
     }
 
     // 1. Users collection
+    // Users may create/update their own profile, but villageNo is immutable
+    // after creation so a client cannot switch itself into another village.
     match /users/{uid} {
       allow read: if isAuthenticated() && request.auth.uid == uid;
-      allow write: if isAuthenticated() && request.auth.uid == uid;
+      allow create: if isAuthenticated() &&
+        request.auth.uid == uid &&
+        request.resource.data.villageNo is string;
+      allow update: if isAuthenticated() &&
+        request.auth.uid == uid &&
+        request.resource.data.villageNo == resource.data.villageNo;
+      allow delete: if false;
     }
 
     // 2. Households collection
