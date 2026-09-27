@@ -74,9 +74,9 @@ fun VhvRegistrationScreen(
     var phoneNumber by remember(userProfile) { mutableStateOf(userProfile?.phoneNumber ?: "") }
     var villageNo by remember(userProfile) { mutableStateOf(userProfile?.villageNo ?: "") }
     var villageName by remember(userProfile) { mutableStateOf(userProfile?.villageName ?: "") }
-    var subdistrict by remember(userProfile) { mutableStateOf(userProfile?.subdistrict ?: "ต.ป่าขะ") }
-    var district by remember(userProfile) { mutableStateOf(userProfile?.district ?: "อ.บ้านนา") }
-    var province by remember(userProfile) { mutableStateOf(userProfile?.province ?: "จ.นครนายก") }
+    var subdistrict by remember(userProfile) { mutableStateOf(userProfile?.subdistrict ?: "") }
+    var district by remember(userProfile) { mutableStateOf(userProfile?.district ?: "") }
+    var province by remember(userProfile) { mutableStateOf(userProfile?.province ?: "") }
     var roleTitle by remember(userProfile) { mutableStateOf(userProfile?.roleTitle ?: "อสม. ประจำหมู่บ้าน") }
     var photoUrlUri by remember(userProfile) { mutableStateOf<Uri?>(userProfile?.photoUrl?.let { Uri.parse(it) }) }
     var cardPhotoUri by remember(userProfile) { mutableStateOf<Uri?>(userProfile?.vhvCardPhotoUrl?.let { Uri.parse(it) }) }
@@ -250,13 +250,13 @@ fun VhvRegistrationScreen(
                             )
                             Column {
                                 Text(
-                                    text = "เลือกชื่อฉันจากรายงาน OSMRP00002 (ต.ป่าขะ)",
+                                    text = "เลือกข้อมูลจากไดเรกทอรี อสม. ปัจจุบัน",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = EmeraldPrimary
                                 )
                                 Text(
-                                    text = "ฐานข้อมูล อสม. ต.ป่าขะ 13 หมู่บ้าน (thaiphc.net)",
+                                    text = "ข้อมูลต้องมาจากฐานข้อมูล อสม. ปัจจุบันที่ตรวจสอบแล้ว",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
