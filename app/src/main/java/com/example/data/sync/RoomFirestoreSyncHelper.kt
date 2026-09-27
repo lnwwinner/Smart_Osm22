@@ -383,7 +383,7 @@ open class RoomFirestoreSyncHelper(
                 "uuid" to screeningUuid,
                 "type" to "health_screening",
                 "deletedAt" to timestamp,
-                "villageNo" to villageNo
+                "villageNo" to resolvedVillageNo
             ))
             batch.commit().await()
             Result.success(Unit)
@@ -571,18 +571,23 @@ open class RoomFirestoreSyncHelper(
         try {
             val firestore = getFirestore()
             val activeVillageNo = villageNo ?: context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE).getString("surveyor_village_no", null)
-            val screenings = repository.getAllScreeningsList().filter { activeVillageNo == null || it.villageNo == activeVillageNo }
             val persons = repository.getAllPersonsList().associateBy { it.id }
             val households = repository.getAllHouseholds().associateBy { it.id }
-            val batches = screenings.filter { !checkTombstoneExists(it.screeningUuid, "health_screening") }.chunked(400)
+            val screenings = repository.getAllScreeningsList().mapNotNull { screening ->
+                val person = persons[screening.personId]
+                val household = person?.let { households[it.householdId] }
+                val resolvedVillageNo = household?.villageNo ?: screening.villageNo
+                if (activeVillageNo != null && resolvedVillageNo != activeVillageNo) null
+                else screening to resolvedVillageNo
+            }
+            val batches = screenings.filter { !checkTombstoneExists(it.first.screeningUuid, "health_screening") }.chunked(400)
             var count = 0
             for (chunk in batches) {
                 val batch = firestore.batch()
-                for (s in chunk) {
+                for ((s, resolvedVillageNo) in chunk) {
                     val person = persons[s.personId]
-                    val household = person?.let { households[it.householdId] }
                     val ref = firestore.collection(COLLECTION_HEALTH_SCREENINGS).document(s.screeningUuid)
-                    batch.set(ref, healthScreeningToMap(s, person?.personUuid ?: s.personUuid, household?.villageNo ?: s.villageNo), SetOptions.merge())
+                    batch.set(ref, healthScreeningToMap(s, person?.personUuid ?: s.personUuid, resolvedVillageNo), SetOptions.merge())
                     count++
                 }
                 batch.commit().await()
@@ -600,17 +605,34 @@ open class RoomFirestoreSyncHelper(
             val firestore = getFirestore()
             val activeVillageNo = villageNo ?: context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE).getString("surveyor_village_no", null)
             val query = if (activeVillageNo != null) firestore.collection(COLLECTION_HEALTH_SCREENINGS).whereEqualTo("villageNo", activeVillageNo) else firestore.collection(COLLECTION_HEALTH_SCREENINGS)
+            val tombstones = firestore.collection(COLLECTION_TOMBSTONES)
+                .whereEqualTo("type", "health_screening")
+                .get().await()
+            for (tombstone in tombstones.documents) {
+                val uuid = tombstone.getString("uuid") ?: continue
+                val tombstoneVillage = tombstone.getString("villageNo")
+                if (activeVillageNo == null || tombstoneVillage == null || tombstoneVillage == activeVillageNo) {
+                    repository.deleteScreeningByUuid(uuid)
+                }
+            }
+
             val docs = query.get().await()
             var count = 0
             for (doc in docs.documents) {
                 val uuid = doc.getString("screeningUuid") ?: doc.id
-                if (checkTombstoneExists(uuid, "health_screening")) continue
+                if (checkTombstoneExists(uuid, "health_screening")) {
+                    repository.deleteScreeningByUuid(uuid)
+                    continue
+                }
                 val personUuid = doc.getString("personUuid") ?: continue
                 val person = repository.getPersonByUuid(personUuid) ?: continue
                 val screening = docToHealthScreening(doc, person.id) ?: continue
                 val existing = repository.getScreeningByUuid(uuid)
-                if (existing == null) repository.insertScreening(screening.copy(id = 0, personId = person.id))
-                else repository.updateScreening(screening.copy(id = existing.id, personId = person.id))
+                if (existing == null) {
+                    repository.insertScreening(screening.copy(id = 0, personId = person.id))
+                } else if (screening.lastModified > existing.lastModified) {
+                    repository.updateScreening(screening.copy(id = existing.id, personId = person.id))
+                }
                 count++
             }
             Result.success(count)
