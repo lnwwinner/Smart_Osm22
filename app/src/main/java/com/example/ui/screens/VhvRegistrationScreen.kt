@@ -60,6 +60,7 @@ fun VhvRegistrationScreen(
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val saveScope = rememberCoroutineScope()
     val userProfile by authViewModel.userProfile.collectAsState()
     val villageAssignment by authViewModel.villageAssignment.collectAsState()
     val villageAssignmentLoading by authViewModel.villageAssignmentLoading.collectAsState()
@@ -642,41 +643,43 @@ fun VhvRegistrationScreen(
                             return@Button
                         }
                         isSubmitting = true
-                        val result = authViewModel.saveSurveyorProfile(
-                            context = context,
-                            fullName = fullName,
-                            villageNo = assignment.villageNo,
-                            villageName = assignment.villageName.ifBlank { "หมู่ ${assignment.villageNo}" },
-                            subdistrict = assignment.subdistrict.ifBlank { subdistrict },
-                            district = assignment.district.ifBlank { district },
-                            province = assignment.province.ifBlank { province },
-                            phone = phoneNumber,
-                            role = roleTitle,
-                            vhvCardId = vhvCardId,
-                            citizenId = citizenId,
-                            healthCenter = healthCenter,
-                            photoUrl = photoUrlUri?.toString(),
-                            vhvCardPhotoUrl = cardPhotoUri?.toString()
-                        )
-                        isSubmitting = false
+                        saveScope.launch {
+                            val result = authViewModel.saveSurveyorProfile(
+                                context = context,
+                                fullName = fullName,
+                                villageNo = assignment.villageNo,
+                                villageName = assignment.villageName.ifBlank { "หมู่ ${assignment.villageNo}" },
+                                subdistrict = assignment.subdistrict.ifBlank { subdistrict },
+                                district = assignment.district.ifBlank { district },
+                                province = assignment.province.ifBlank { province },
+                                phone = phoneNumber,
+                                role = roleTitle,
+                                vhvCardId = vhvCardId,
+                                citizenId = citizenId,
+                                healthCenter = healthCenter,
+                                photoUrl = photoUrlUri?.toString(),
+                                vhvCardPhotoUrl = cardPhotoUri?.toString()
+                            )
+                            isSubmitting = false
 
-                        result.fold(
-                            onSuccess = {
-                                Toast.makeText(
-                                    context,
-                                    "บันทึกข้อมูลสมาชิก อสม. เรียบร้อยแล้ว",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                onRegistrationSuccess()
-                            },
-                            onFailure = { error ->
-                                Toast.makeText(
-                                    context,
-                                    error.message ?: "ไม่สามารถบันทึกข้อมูลสมาชิก อสม. ได้",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        )
+                            result.fold(
+                                onSuccess = {
+                                    Toast.makeText(
+                                        context,
+                                        "บันทึกข้อมูลสมาชิก อสม. เรียบร้อยแล้ว",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    onRegistrationSuccess()
+                                },
+                                onFailure = { error ->
+                                    Toast.makeText(
+                                        context,
+                                        error.message ?: "ไม่สามารถบันทึกข้อมูลสมาชิก อสม. ได้",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            )
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
