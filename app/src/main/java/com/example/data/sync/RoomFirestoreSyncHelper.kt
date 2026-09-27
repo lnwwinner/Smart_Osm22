@@ -364,6 +364,36 @@ open class RoomFirestoreSyncHelper(
     }
 
     /**
+     * Deletes a health screening from Firestore and writes a tombstone atomically.
+     * The tombstone prevents a later Room-to-Firestore or Firestore-to-Room sync from resurrecting it.
+     */
+    suspend fun deleteHealthScreeningFromFirestore(screeningUuid: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val firestore = getFirestore()
+            val screening = repository.getScreeningByUuid(screeningUuid)
+            val villageNo = screening?.villageNo ?: ""
+            val timestamp = System.currentTimeMillis()
+            val batch = firestore.batch()
+
+            val screeningRef = firestore.collection(COLLECTION_HEALTH_SCREENINGS).document(screeningUuid)
+            val tombstoneRef = firestore.collection(COLLECTION_TOMBSTONES).document("health_screening_$screeningUuid")
+
+            batch.delete(screeningRef)
+            batch.set(tombstoneRef, mapOf(
+                "uuid" to screeningUuid,
+                "type" to "health_screening",
+                "deletedAt" to timestamp,
+                "villageNo" to villageNo
+            ))
+            batch.commit().await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete health screening $screeningUuid from Firestore", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Deletes a person from Firestore by UUID and writes a tombstone atomically.
      */
     open suspend fun deletePersonFromFirestore(personUuid: String): Result<Unit> = withContext(Dispatchers.IO) {
