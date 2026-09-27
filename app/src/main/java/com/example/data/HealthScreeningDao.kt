@@ -32,4 +32,7 @@ interface HealthScreeningDao {
 
     @Query("SELECT * FROM health_screenings WHERE screeningUuid IN (:uuids)")
     suspend fun getScreeningsByUuids(uuids: List<String>): List<HealthScreening>
+
+    @Query("DELETE FROM health_screenings WHERE screeningUuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
 }
