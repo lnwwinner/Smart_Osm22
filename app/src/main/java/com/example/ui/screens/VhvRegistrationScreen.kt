@@ -68,9 +68,9 @@ fun VhvRegistrationScreen(
 
     // Form States initialized with current registered values or defaults
     var fullName by remember(userProfile) { mutableStateOf(userProfile?.displayName ?: "") }
-    var vhvCardId by remember(userProfile) { mutableStateOf(userProfile?.vhvCardId ?: "1-2602-00888-00-1") }
+    var vhvCardId by remember(userProfile) { mutableStateOf(userProfile?.vhvCardId ?: "") }
     var citizenId by remember(userProfile) { mutableStateOf(userProfile?.citizenId ?: "") }
-    var healthCenter by remember(userProfile) { mutableStateOf(userProfile?.healthCenter ?: "รพ.สต.ป่าขะ") }
+    var healthCenter by remember(userProfile) { mutableStateOf(userProfile?.healthCenter ?: "") }
     var phoneNumber by remember(userProfile) { mutableStateOf(userProfile?.phoneNumber ?: "") }
     var villageNo by remember(userProfile) { mutableStateOf(userProfile?.villageNo ?: "") }
     var villageName by remember(userProfile) { mutableStateOf(userProfile?.villageName ?: "") }
@@ -539,16 +539,12 @@ fun VhvRegistrationScreen(
 
                                     Button(
                                         onClick = {
-                                            isScanningCard = true
-                                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                                                isScanningCard = false
-                                                if (fullName.isBlank()) fullName = "สมชาย ใจดี"
-                                                vhvCardId = "1-2602-00888-00-1"
-                                                citizenId = "1260200888123"
-                                                healthCenter = "รพ.สต.ป่าขะ"
-                                                Toast.makeText(context, "สแกนข้อมูลจากบัตร อสม. สำเร็จ!", Toast.LENGTH_LONG).show()
-                                                selectedTab = 0
-                                            }, 1000)
+                                            isScanningCard = false
+                                            Toast.makeText(
+                                                context,
+                                                "ระบบสแกน AI ยังไม่เชื่อม OCR จริง กรุณากรอกข้อมูลจากบัตร อสม. ด้วยตนเอง",
+                                                Toast.LENGTH_LONG
+                                            ).show()
                                         },
                                         modifier = Modifier.weight(1f),
                                         colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
