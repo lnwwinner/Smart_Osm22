@@ -424,9 +424,9 @@ fun IdCardScannerDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(Icons.Filled.DeveloperMode, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Filled.Keyboard, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(18.dp))
                             Text(
-                                "ทดสอบสแกนจำลอง (สำหรับ Emulator / ทดสอบ):",
+                                "ป้อนรหัสบาร์โค้ด / ตัวเลข 13 หลักด้วยตนเอง:",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -442,64 +442,10 @@ fun IdCardScannerDialog(
                     AnimatedVisibility(visible = showTestPanel) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                "แตะเพื่อจำลองการสแกนบัตรประชาชนจริง:",
+                                "กรอกเลขประจำตัวประชาชน 13 หลัก หรือข้อความจากเครื่องอ่านบาร์โค้ด:",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-
-                            // Quick sample 1
-                            OutlinedButton(
-                                onClick = {
-                                    handleScannedCode("1509900123456|นายสมชาย ใจดี|123/4|3|สารภี|สารภี|เชียงใหม่")
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldPrimary)
-                            ) {
-                                Icon(Icons.Filled.Badge, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    "นายสมชาย ใจดี (บ้านเลขที่ 123/4 หมู่ 3 ต.สารภี)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1
-                                )
-                            }
-
-                            // Quick sample 2
-                            OutlinedButton(
-                                onClick = {
-                                    handleScannedCode("3100200543219#นางสมศรี สุขเกษม#บ้านเลขที่ 88/1 หมู่ 5 ต.หนองหอย อ.เมือง จ.เชียงใหม่")
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldPrimary)
-                            ) {
-                                Icon(Icons.Filled.Badge, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    "นางสมศรี สุขเกษม (บ้านเลขที่ 88/1 หมู่ 5 ต.หนองหอย)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1
-                                )
-                            }
-
-                            // Quick sample 3: 1D Barcode (Code 128)
-                            OutlinedButton(
-                                onClick = {
-                                    handleScannedCode("5500100892114")
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldPrimary)
-                            ) {
-                                Icon(Icons.Filled.QrCode, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    "บาร์โค้ด 13 หลัก: 5500100892114 (Code 128)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1
-                                )
-                            }
 
                             // Manual entry box
                             Row(
@@ -510,7 +456,7 @@ fun IdCardScannerDialog(
                                 OutlinedTextField(
                                     value = manualInputText,
                                     onValueChange = { manualInputText = it },
-                                    placeholder = { Text("พิมพ์บาร์โค้ดหรือ QR เพื่อทดสอบ...", fontSize = 12.sp) },
+                                    placeholder = { Text("กรอกเลข 13 หลัก หรือข้อความบาร์โค้ด...", fontSize = 12.sp) },
                                     singleLine = true,
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(8.dp)
@@ -518,14 +464,14 @@ fun IdCardScannerDialog(
                                 Button(
                                     onClick = {
                                         if (manualInputText.isNotBlank()) {
-                                            handleScannedCode(manualInputText)
+                                            handleScannedCode(manualInputText.trim())
                                         }
                                     },
                                     enabled = manualInputText.isNotBlank(),
                                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("ทดสอบ", fontSize = 12.sp)
+                                    Text("ประมวลผล", fontSize = 12.sp)
                                 }
                             }
                         }

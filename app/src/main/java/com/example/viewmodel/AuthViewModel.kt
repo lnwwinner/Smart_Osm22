@@ -45,7 +45,7 @@ class AuthViewModel(
         _uiState.value = AuthUiState.Idle
     }
 
-    fun signInWithGoogleTest(context: Context, email: String = "gigatvthai@gmail.com") {
+    fun signInWithGoogleTest(context: Context, email: String = "surveyor@smartosm.org") {
         _uiState.value = AuthUiState.Loading("กำลังเข้าสู่ระบบบัญชีทดสอบ Google...")
         val result = authManager.signInWithGoogleTest(context, email)
         result.fold(

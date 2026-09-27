@@ -65,12 +65,10 @@ object FirestoreManager {
                         FirebaseApp.initializeApp(context)
                     } catch (e: Exception) {
                         try {
-                            val options = com.google.firebase.FirebaseOptions.Builder()
-                                .setApplicationId(context.packageName)
-                                .setApiKey("AIzaSyDdqGGglBsUlEh45cX7Zs4TUotxRqocLGI")
-                                .setProjectId("appclone-480208")
-                                .build()
-                            FirebaseApp.initializeApp(context, options)
+                            val options = com.google.firebase.FirebaseOptions.fromResource(context)
+                            if (options != null) {
+                                FirebaseApp.initializeApp(context, options)
+                            }
                         } catch (e2: Exception) {
                             Log.w(TAG, "Failed to auto-initialize FirebaseApp: ${e.message}, fallback: ${e2.message}")
                         }

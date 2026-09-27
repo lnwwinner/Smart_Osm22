@@ -87,12 +87,10 @@ open class AuthManager(
                     FirebaseApp.initializeApp(context)
                 } catch (e: Exception) {
                     try {
-                        val options = com.google.firebase.FirebaseOptions.Builder()
-                            .setApplicationId(context.packageName)
-                            .setApiKey("AIzaSySmartOsmAndroidKeySurvey2026")
-                            .setProjectId("smart-osm-community")
-                            .build()
-                        FirebaseApp.initializeApp(context, options)
+                        val options = com.google.firebase.FirebaseOptions.fromResource(context)
+                        if (options != null) {
+                            FirebaseApp.initializeApp(context, options)
+                        }
                     } catch (e2: Exception) {
                         Log.w(TAG, "Fallback FirebaseApp init failed: ${e2.message}")
                     }
@@ -419,7 +417,7 @@ open class AuthManager(
      */
     open fun signInWithGoogleTest(
         context: Context,
-        email: String = "gigatvthai@gmail.com",
+        email: String = "surveyor@smartosm.org",
         displayName: String = "ผู้สำรวจ อสม. (Google Test)"
     ): Result<UserProfile> {
         val uid = "google:${Math.abs(email.hashCode())}"
