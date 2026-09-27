@@ -83,36 +83,14 @@ data class VillageAssignment(
     private var cachedVhvCardPhotoUrl: String? = null
 
     fun ensureFirebase(context: Context): FirebaseAuth? {
-        try {
-            val hasApps = try {
-                FirebaseApp.getApps(context).isNotEmpty()
-            } catch (e: Exception) {
-                false
+        return try {
+            if (FirebaseApp.getApps(context).isEmpty()) {
+                FirebaseApp.initializeApp(context)
             }
-            if (!hasApps) {
-                try {
-                    FirebaseApp.initializeApp(context)
-                } catch (e: Exception) {
-                    try {
-                        val options = com.google.firebase.FirebaseOptions.Builder()
-                            .setApplicationId(context.packageName)
-                            .setApiKey("AIzaSySmartOsmAndroidKeySurvey2026")
-                            .setProjectId("smart-osm-community")
-                            .build()
-                        FirebaseApp.initializeApp(context, options)
-                    } catch (e2: Exception) {
-                        Log.w(TAG, "Fallback FirebaseApp init failed: ${e2.message}")
-                    }
-                }
-            }
-            return try {
-                FirebaseAuth.getInstance()
-            } catch (e: Exception) {
-                null
-            }
+            FirebaseAuth.getInstance()
         } catch (e: Exception) {
-            Log.w(TAG, "ensureFirebase failed: ${e.message}")
-            return null
+            Log.w(TAG, "Firebase is not configured: ${e.message}")
+            null
         }
     }
 
