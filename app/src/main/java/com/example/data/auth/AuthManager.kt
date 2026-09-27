@@ -342,42 +342,8 @@ data class VillageAssignment(
                 vhvCardPhotoUrl = cachedVhvCardPhotoUrl
             )
             _userProfile.value = profile
-
-            // Sync user profile to Firestore users collection
-            try {
-                if (profile.uid.isNotBlank()) {
-                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    val userMap = mapOf(
-                        "uid" to profile.uid,
-                        "displayName" to profile.displayName,
-                        "email" to profile.email,
-                        "villageNo" to profile.villageNo,
-                        "villageName" to profile.villageName,
-                        "subdistrict" to profile.subdistrict,
-                        "district" to profile.district,
-                        "province" to profile.province,
-                        "roleTitle" to profile.roleTitle,
-                        "vhvCardId" to profile.vhvCardId,
-                        "citizenId" to profile.citizenId,
-                        "healthCenter" to profile.healthCenter,
-                        "updatedAt" to System.currentTimeMillis()
-                    )
-                    firestore.collection("users").document(profile.uid)
-                        .set(userMap, com.google.firebase.firestore.SetOptions.merge())
-                        .addOnSuccessListener {
-                            Log.d(TAG, "User profile auto-synced to Firestore on update: ${profile.uid}")
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e(TAG, "Failed to auto-sync user profile to Firestore on update", e)
-                        }
-                }
-            } catch (fsEx: Exception) {
-                Log.w(TAG, "Firestore is unavailable for user profile auto-sync: ${fsEx.message}")
-            }
-        } else if (_localProfile != null) {
-            _userProfile.value = _localProfile
         } else {
-            _userProfile.value = null
+            _userProfile.value = _localProfile
         }
     }
 
