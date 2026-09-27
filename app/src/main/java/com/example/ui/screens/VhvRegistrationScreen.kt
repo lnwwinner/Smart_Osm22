@@ -61,6 +61,9 @@ fun VhvRegistrationScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val userProfile by authViewModel.userProfile.collectAsState()
+    val villageAssignment by authViewModel.villageAssignment.collectAsState()
+    val villageAssignmentLoading by authViewModel.villageAssignmentLoading.collectAsState()
+    val villageAssignmentError by authViewModel.villageAssignmentError.collectAsState()
 
     // Form States initialized with current registered values or defaults
     var fullName by remember(userProfile) { mutableStateOf(userProfile?.displayName ?: "") }
@@ -68,8 +71,8 @@ fun VhvRegistrationScreen(
     var citizenId by remember(userProfile) { mutableStateOf(userProfile?.citizenId ?: "") }
     var healthCenter by remember(userProfile) { mutableStateOf(userProfile?.healthCenter ?: "รพ.สต.ป่าขะ") }
     var phoneNumber by remember(userProfile) { mutableStateOf(userProfile?.phoneNumber ?: "") }
-    var villageNo by remember(userProfile) { mutableStateOf(userProfile?.villageNo ?: "7") }
-    var villageName by remember(userProfile) { mutableStateOf(userProfile?.villageName ?: "หมู่ 7 บ้านกร่างประตูวัง") }
+    var villageNo by remember(userProfile) { mutableStateOf(userProfile?.villageNo ?: "") }
+    var villageName by remember(userProfile) { mutableStateOf(userProfile?.villageName ?: "") }
     var subdistrict by remember(userProfile) { mutableStateOf(userProfile?.subdistrict ?: "ต.ป่าขะ") }
     var district by remember(userProfile) { mutableStateOf(userProfile?.district ?: "อ.บ้านนา") }
     var province by remember(userProfile) { mutableStateOf(userProfile?.province ?: "จ.นครนายก") }
@@ -80,6 +83,21 @@ fun VhvRegistrationScreen(
     var selectedTab by remember { mutableIntStateOf(0) } // 0 = Form, 1 = Card Scan, 2 = Profile Photo
     var isSubmitting by remember { mutableStateOf(false) }
     var isScanningCard by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        authViewModel.loadVillageAssignment()
+    }
+
+    LaunchedEffect(villageAssignment) {
+        villageAssignment?.let { assignment ->
+            villageNo = assignment.villageNo
+            villageName = assignment.villageName.ifBlank { "หมู่ ${assignment.villageNo}" }
+            if (assignment.subdistrict.isNotBlank()) subdistrict = assignment.subdistrict
+            if (assignment.district.isNotBlank()) district = assignment.district
+            if (assignment.province.isNotBlank()) province = assignment.province
+        }
+    }
+
 
     // Image Picker for Profile Photo
     val profilePhotoPicker = rememberLauncherForActivityResult(
@@ -100,23 +118,6 @@ fun VhvRegistrationScreen(
             Toast.makeText(context, "อัปโหลดรูปบัตร อสม. เรียบร้อยแล้ว", Toast.LENGTH_SHORT).show()
         }
     }
-
-    // Village Options
-    val villageOptions = listOf(
-        "1" to "หมู่ 1 บ้านหนองเคี่ยม",
-        "2" to "หมู่ 2 บ้านคลองผักหนาม",
-        "3" to "หมู่ 3 บ้านป่าขะ",
-        "4" to "หมู่ 4 บ้านท่ามะเฟือง",
-        "5" to "หมู่ 5 บ้านโคกประเสริฐ",
-        "6" to "หมู่ 6 บ้านหนองยาง",
-        "7" to "หมู่ 7 บ้านกร่างประตูวัง",
-        "8" to "หมู่ 8 บ้านคลองส่ง",
-        "9" to "หมู่ 9 บ้านคลองกระโดน",
-        "10" to "หมู่ 10 บ้านต้นกระบก",
-        "11" to "หมู่ 11 บ้านดงขี้พุก",
-        "12" to "หมู่ 12 บ้านทุ่งกระโปรง",
-        "13" to "หมู่ 13 บ้านคลองนางหงษ์"
-    )
 
     Scaffold(
         topBar = {
@@ -380,39 +381,51 @@ fun VhvRegistrationScreen(
 
                                 SectionHeader(icon = Icons.Filled.Place, title = "พื้นที่รับผิดชอบ (Village Area)")
 
-                                // Dropdown Village Selector
-                                var expanded by remember { mutableStateOf(false) }
-                                ExposedDropdownMenuBox(
-                                    expanded = expanded,
-                                    onExpandedChange = { expanded = !expanded }
-                                ) {
-                                    OutlinedTextField(
-                                        value = villageName,
-                                        onValueChange = {},
-                                        readOnly = true,
-                                        label = { Text("หมู่บ้าน / พื้นที่รับผิดชอบ") },
-                                        leadingIcon = { Icon(Icons.Filled.Home, contentDescription = null) },
-                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                        modifier = Modifier
-                                            .menuAnchor()
-                                            .fillMaxWidth()
-                                            .testTag("input_vhv_village"),
-                                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                                        shape = RoundedCornerShape(12.dp)
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                                     )
-                                    ExposedDropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false }
-                                    ) {
-                                        villageOptions.forEach { (no, name) ->
-                                            DropdownMenuItem(
-                                                text = { Text(name) },
-                                                onClick = {
-                                                    villageNo = no
-                                                    villageName = name
-                                                    expanded = false
-                                                }
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Text(
+                                            text = "พื้นที่รับผิดชอบที่ได้รับอนุมัติ",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        if (villageAssignmentLoading) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Text("กำลังตรวจสอบพื้นที่รับผิดชอบจากระบบ...")
+                                            }
+                                        } else if (villageAssignment != null) {
+                                            Text(
+                                                text = villageName,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                fontWeight = FontWeight.Bold
                                             )
+                                            Text(
+                                                text = "หมู่ที่ ${villageNo}",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                        } else {
+                                            Text(
+                                                text = villageAssignmentError
+                                                    ?: "ยังไม่ได้รับการกำหนดพื้นที่รับผิดชอบ",
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            OutlinedButton(
+                                                onClick = { authViewModel.loadVillageAssignment() }
+                                            ) {
+                                                Text("ตรวจสอบอีกครั้ง")
+                                            }
                                         }
                                     }
                                 }
@@ -617,6 +630,14 @@ fun VhvRegistrationScreen(
                         if (fullName.isBlank()) {
                             Toast.makeText(context, "กรุณากรอกชื่อ-นามสกุล อสม.", Toast.LENGTH_SHORT).show()
                             selectedTab = 0
+                            return@Button
+                        }
+                        if (villageAssignment == null) {
+                            Toast.makeText(
+                                context,
+                                villageAssignmentError ?: "ยังไม่ได้รับการกำหนดพื้นที่รับผิดชอบ ไม่สามารถบันทึกข้อมูลได้",
+                                Toast.LENGTH_LONG
+                            ).show()
                             return@Button
                         }
                         isSubmitting = true
