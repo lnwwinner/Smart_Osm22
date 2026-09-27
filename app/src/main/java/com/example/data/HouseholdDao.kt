@@ -8,11 +8,20 @@ interface HouseholdDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(household: Household): Long
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAll(households: List<Household>): List<Long>
+
     @Update
     suspend fun update(household: Household)
 
     @Delete
     suspend fun delete(household: Household)
+
+    @Query("DELETE FROM households WHERE id = :id")
+    suspend fun deleteById(id: Long): Int
+
+    @Query("DELETE FROM households WHERE householdUuid = :uuid")
+    suspend fun deleteByUuid(uuid: String): Int
 
     @Query("SELECT * FROM households WHERE id = :id LIMIT 1")
     suspend fun getHouseholdById(id: Long): Household?
@@ -22,6 +31,18 @@ interface HouseholdDao {
 
     @Query("SELECT * FROM households WHERE householdUuid = :uuid LIMIT 1")
     suspend fun getHouseholdByUuid(uuid: String): Household?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM households WHERE householdUuid = :uuid LIMIT 1)")
+    suspend fun existsByHouseholdUuid(uuid: String): Boolean
+
+    @Query("SELECT * FROM households WHERE villageNo = :villageNo ORDER BY houseNo ASC")
+    fun getHouseholdsByVillageNo(villageNo: String): Flow<List<Household>>
+
+    @Query("SELECT * FROM households WHERE villageNo = :villageNo ORDER BY houseNo ASC")
+    suspend fun getHouseholdsByVillageNoList(villageNo: String): List<Household>
+
+    @Query("SELECT * FROM households WHERE houseNo LIKE '%' || :query || '%' OR villageNo LIKE '%' || :query || '%' ORDER BY houseNo ASC")
+    fun searchHouseholds(query: String): Flow<List<Household>>
 
     @Transaction
     @Query("SELECT * FROM households ORDER BY houseNo ASC")

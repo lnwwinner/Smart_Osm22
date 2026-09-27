@@ -209,4 +209,9 @@ class PersonRepository(
 
     suspend fun getAllHouseholds(): List<Household> = householdDao.getAllHouseholds()
     suspend fun getAllPersonsList(): List<Person> = personDao.getAllPersonsList()
+
+    fun searchPersons(query: String): Flow<List<Person>> = personDao.searchPersons(query)
+    fun getPersonsByVillage(villageNo: String): Flow<List<Person>> = personDao.getPersonsByVillage(villageNo)
+    fun getHouseholdsByVillageNo(villageNo: String): Flow<List<Household>> = householdDao.getHouseholdsByVillageNo(villageNo)
+    fun searchHouseholds(query: String): Flow<List<Household>> = householdDao.searchHouseholds(query)
 }
