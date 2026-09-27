@@ -605,12 +605,26 @@ class PersonViewModel(
     // Health Screening Operations
     fun getScreeningsForPerson(personId: Long) = repository.getScreeningsForPerson(personId)
 
-    fun insertScreening(screening: com.example.data.HealthScreening) = viewModelScope.launch {
-        repository.insertScreening(screening)
+    fun insertScreening(screening: com.example.data.HealthScreening) = viewModelScope.launch(Dispatchers.IO) {
+        val person = repository.getPersonById(screening.personId)
+        val household = person?.let { repository.getHouseholdById(it.householdId) }
+        val enriched = screening.copy(
+            personUuid = person?.personUuid ?: screening.personUuid,
+            villageNo = household?.villageNo ?: screening.villageNo,
+            lastModified = System.currentTimeMillis()
+        )
+        repository.insertScreening(enriched)
     }
 
-    fun updateScreening(screening: com.example.data.HealthScreening) = viewModelScope.launch {
-        repository.updateScreening(screening)
+    fun updateScreening(screening: com.example.data.HealthScreening) = viewModelScope.launch(Dispatchers.IO) {
+        val person = repository.getPersonById(screening.personId)
+        val household = person?.let { repository.getHouseholdById(it.householdId) }
+        val enriched = screening.copy(
+            personUuid = person?.personUuid ?: screening.personUuid,
+            villageNo = household?.villageNo ?: screening.villageNo,
+            lastModified = System.currentTimeMillis()
+        )
+        repository.updateScreening(enriched)
     }
 
     fun deleteScreening(screening: com.example.data.HealthScreening) = viewModelScope.launch(Dispatchers.IO) {
