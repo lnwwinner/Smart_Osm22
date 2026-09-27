@@ -1,5 +1,7 @@
 package com.example.ui
 
+import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.Household
@@ -29,7 +31,7 @@ class DiagnosticViewModel(
     private val _state = MutableStateFlow(DiagnosticResult())
     val state: StateFlow<DiagnosticResult> = _state
 
-    fun runDiagnostic() {
+    fun runDiagnostic(context: Context) {
         if (firestore == null) {
             _state.value = _state.value.copy(error = "Firebase is not configured.")
             return
@@ -39,20 +41,31 @@ class DiagnosticViewModel(
             _state.value = DiagnosticResult(isLoading = true)
 
             try {
-                // Fetch local
-                val localHouseholds = repository.getAllHouseholds()
-                val localPersons = repository.getAllPersonsList()
+                // Get the surveyor's active villageNo for regional query partitioning
+                val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                val activeVillageNo = prefs.getString("surveyor_village_no", "8") ?: "8"
+
+                // Fetch local matching activeVillageNo
+                val localHouseholds = repository.getAllHouseholds().filter { it.villageNo == activeVillageNo }
+                val localHouseholdIds = localHouseholds.map { it.id }.toSet()
+                val localPersons = repository.getAllPersonsList().filter { it.householdId in localHouseholdIds }
+                
                 val localHouseholdUuids = localHouseholds.map { it.householdUuid }.toSet()
                 val localPersonUuids = localPersons.map { it.personUuid }.toSet()
 
-                // Fetch cloud
-                val cloudHouseholdsSnapshot = firestore.collection(RoomFirestoreSyncHelper.COLLECTION_HOUSEHOLDS).get().await()
-                val cloudPersonsSnapshot = firestore.collection(RoomFirestoreSyncHelper.COLLECTION_PERSONS).get().await()
+                // Fetch cloud matching activeVillageNo (complying with security rules partitioning)
+                val cloudHouseholdsSnapshot = firestore.collection(RoomFirestoreSyncHelper.COLLECTION_HOUSEHOLDS)
+                    .whereEqualTo("villageNo", activeVillageNo)
+                    .get().await()
+                
+                val cloudPersonsSnapshot = firestore.collection(RoomFirestoreSyncHelper.COLLECTION_PERSONS)
+                    .whereEqualTo("villageNo", activeVillageNo)
+                    .get().await()
 
                 val cloudHouseholdUuids = cloudHouseholdsSnapshot.documents.map { it.id }.toSet()
                 val cloudPersonUuids = cloudPersonsSnapshot.documents.map { it.id }.toSet()
 
-                // Identify orphans
+                // Identify orphans within the authorized partition
                 val orphanedInRoomHouseholds = localHouseholdUuids.filter { it !in cloudHouseholdUuids }
                 val orphanedInRoomPersons = localPersonUuids.filter { it !in cloudPersonUuids }
                 val orphanedInFirestoreHouseholds = cloudHouseholdUuids.filter { it !in localHouseholdUuids }

@@ -12,12 +12,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun DiagnosticScreen(viewModel: DiagnosticViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("System Diagnostic", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(onClick = { viewModel.runDiagnostic() }, enabled = !state.isLoading) {
+        Button(onClick = { viewModel.runDiagnostic(context) }, enabled = !state.isLoading) {
             Text(if (state.isLoading) "Running..." else "Run Diagnostic")
         }
 
