@@ -615,27 +615,27 @@ class PersonViewModel(
 
     fun deleteScreening(screening: com.example.data.HealthScreening) = viewModelScope.launch(Dispatchers.IO) {
         try {
-            // Resolve village before local deletion so Firestore security rules can validate the tombstone.
+            val helper = syncHelper
+            val cloudConfigured = helper != null && helper.isFirebaseConfigured()
             val villageNo = repository.getPersonById(screening.personId)?.let { person ->
                 repository.getHouseholdById(person.householdId)?.villageNo
             } ?: screening.villageNo
 
-            // Keep local-first behavior, then persist a Cloud tombstone so the record cannot resurrect.
-            repository.deleteScreening(screening)
-
-            val helper = syncHelper
-            if (helper != null && helper.isFirebaseConfigured()) {
-                try {
-                    helper.deleteHealthScreeningFromFirestore(screening.screeningUuid, villageNo)
-                } catch (e: Exception) {
-                    android.util.Log.w("PersonViewModel", "Cloud health screening tombstone write deferred: ${e.message}")
+            // When Cloud is configured, create the tombstone/delete first. This prevents
+            // a failed Cloud operation from leaving a deleted local record able to resurrect.
+            if (cloudConfigured) {
+                val cloudResult = helper!!.deleteHealthScreeningFromFirestore(screening.screeningUuid, villageNo)
+                if (cloudResult.isFailure) {
+                    android.util.Log.w("PersonViewModel", "Health screening Cloud delete failed; local delete aborted: ${cloudResult.exceptionOrNull()?.message}")
+                    return@launch
                 }
             }
+
+            repository.deleteScreening(screening)
         } catch (e: Exception) {
             android.util.Log.e("PersonViewModel", "Exception deleting health screening", e)
         }
     }
-
     fun importExcelData(context: Context, uri: Uri) {
         if (_isImporting.value) return
         
