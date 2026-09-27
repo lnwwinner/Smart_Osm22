@@ -8,6 +8,9 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -97,6 +100,7 @@ fun PlanOfWorkScreen(
     var selectedFilter by remember { mutableStateOf(PlanFilter.ALL) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showQuickTemplateDialog by remember { mutableStateOf(false) }
+    var selectedCampaignIndex by remember { mutableStateOf(0) }
     var filterCategory by remember { mutableStateOf<WorkCategory?>(null) }
 
     fun savePlans(newList: List<PlanItem>) {
@@ -501,44 +505,109 @@ fun PlanOfWorkScreen(
         )
     }
 
-    // Quick Templates Dialog
+    // Quick Templates Dialog (Standard Public Health Annual Work Plan Automation)
     if (showQuickTemplateDialog) {
+        val campaigns = listOf(
+            "🦟 แผนควบคุมไข้เลือดออก (ฤดูฝน)" to 0,
+            "🩸 แผนคัดกรอง NCDs เชิงรุก" to 1,
+            "👵 แผนดูแลผู้สูงอายุ & ติดเตียง" to 2,
+            "👶 แผนวัคซีน & สุขภาพเด็กเล็ก" to 3
+        )
+
         AlertDialog(
             onDismissRequest = { showQuickTemplateDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = EmeraldPrimary)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("สร้างแผนงานมาตรฐาน อสม.", fontWeight = FontWeight.Bold)
+                    Text("ตัวช่วยวางแผนสุขภาพชุมชนรายปี", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "ระบบจะสร้างชุดแผนการปฏิบัติงานมาตรฐานประจำเดือนสำหรับ อสม. อัตโนมัติ (6 ภารกิจหลัก):",
+                        text = "เลือกแผนงานการลงพื้นที่ตามบริบทและมาตรการสาธารณสุขของปีนี้ เพื่อสร้างภารกิจลงพื้นที่อัตโนมัติ:",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    val templates = getStandardOsmTemplates()
-                    templates.forEach { tmpl ->
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                    // Campaign selector row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        campaigns.forEach { (title, index) ->
+                            val isSelected = selectedCampaignIndex == index
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, if (isSelected) Color.Transparent else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
+                                modifier = Modifier.clickable { selectedCampaignIndex = index }
                             ) {
-                                Icon(tmpl.category.icon, contentDescription = null, tint = tmpl.category.color, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(tmpl.title, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                    Text(tmpl.description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                    Text(
+                        text = "รายการภารกิจที่จะสร้าง (${getCampaignTemplates(selectedCampaignIndex).size} ภารกิจ):",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // Scrollable Campaign preview list
+                    Box(modifier = Modifier.heightIn(max = 240.dp)) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            getCampaignTemplates(selectedCampaignIndex).forEach { tmpl ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(tmpl.category.color.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                tmpl.category.icon,
+                                                contentDescription = null,
+                                                tint = tmpl.category.color,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(tmpl.title, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                            Text(tmpl.description, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -548,14 +617,14 @@ fun PlanOfWorkScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        val templates = getStandardOsmTemplates()
-                        savePlans(templates + plansList)
+                        val selectedPlans = getCampaignTemplates(selectedCampaignIndex)
+                        savePlans(selectedPlans + plansList)
                         showQuickTemplateDialog = false
-                        Toast.makeText(context, "เพิ่มแผนงานมาตรฐาน 6 รายการแล้ว", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "สร้างชุดแผนงานมาตรฐานสำเร็จแล้ว!", Toast.LENGTH_SHORT).show()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
                 ) {
-                    Text("เพิ่มแผนงานมาตรฐานทั้งหมด")
+                    Text("ยืนยันสร้างแผนงาน")
                 }
             },
             dismissButton = {
@@ -707,6 +776,119 @@ fun PlanItemCard(
                 )
             }
         }
+    }
+}
+
+private fun getCampaignTemplates(campaignId: Int): List<PlanItem> {
+    val currentMonth = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"))
+    return when (campaignId) {
+        0 -> listOf(
+            PlanItem(
+                title = "รณรงค์ 3 เก็บ ป้องกัน 3 โรค (ฤดูฝน)",
+                description = "ตรวจทำลายแหล่งเพาะพันธุ์ยุงลายรอบบ้าน แจกทรายอะเบทควบคุมลูกน้ำยุงลาย",
+                dueDate = "$currentMonth-05",
+                category = WorkCategory.ENVIRONMENT,
+                priority = WorkPriority.HIGH
+            ),
+            PlanItem(
+                title = "แจกเอกสารสุขศึกษาป้องกันไข้เลือดออกประจำสัปดาห์",
+                description = "แจกใบปลิว ให้ความรู้สุขศึกษา แก่ประชาชนขณะปฏิบัติงานเยี่ยมบ้าน",
+                dueDate = "$currentMonth-12",
+                category = WorkCategory.ENVIRONMENT,
+                priority = WorkPriority.MEDIUM
+            ),
+            PlanItem(
+                title = "สำรวจค่าดัชนีความชุกของลูกน้ำยุงลาย (HI/CI)",
+                description = "ตรวจนับและรายงานค่าความชุกของลูกน้ำยุงลายในครัวเรือน วัด และโรงเรียนส่ง รพ.สต.",
+                dueDate = "$currentMonth-19",
+                category = WorkCategory.ENVIRONMENT,
+                priority = WorkPriority.MEDIUM
+            ),
+            PlanItem(
+                title = "ประเมินผลสัมฤทธิ์แคมเปญป้องกันไข้เลือดออกชุมชน",
+                description = "ติดตามผลลัพธ์การลดปริมาณยุงลายและความเสี่ยงการเจ็บป่วยประจำรอบไตรมาส",
+                dueDate = "$currentMonth-26",
+                category = WorkCategory.ENVIRONMENT,
+                priority = WorkPriority.LOW
+            )
+        )
+        1 -> listOf(
+            PlanItem(
+                title = "ประชาสัมพันธ์นัดหมายคัดกรองเบาหวาน/ความดันสูง",
+                description = "แจ้งเตือนประชากรกลุ่มเสี่ยงอายุ 35 ปีขึ้นไป และสัญจรคัดกรองเชิงรุก",
+                dueDate = "$currentMonth-08",
+                category = WorkCategory.CHRONIC_DISEASE,
+                priority = WorkPriority.HIGH
+            ),
+            PlanItem(
+                title = "ลงพื้นที่ตรวจเจาะเลือดปลายนิ้วเชิงรุกรายครัวเรือน",
+                description = "ตรวจวัดความดันโลหิต บันทึกค่าน้ำตาลในเลือด อัดข้อมูลลงแอป Smart OSM",
+                dueDate = "$currentMonth-15",
+                category = WorkCategory.CHRONIC_DISEASE,
+                priority = WorkPriority.HIGH
+            ),
+            PlanItem(
+                title = "สรุปรายชื่อผู้มีความเสี่ยงสูงเพื่อประเมินสัญจร",
+                description = "ส่งรายชื่อกลุ่มเสี่ยงรุนแรงเข้าสู่การวินิจฉัยแพทย์ประจำ รพ.สต. ทันที",
+                dueDate = "$currentMonth-22",
+                category = WorkCategory.CHRONIC_DISEASE,
+                priority = WorkPriority.MEDIUM
+            ),
+            PlanItem(
+                title = "แนะนำโภชนาการเลี่ยงโรคเค็ม/หวาน ในชุมชน",
+                description = "เยี่ยมบ้านให้คำปรึกษาปรับเปลี่ยนพฤติกรรม ลดหวาน มัน เค็ม เลี่ยงโรคไม่ติดต่อเรื้อรัง",
+                dueDate = "$currentMonth-29",
+                category = WorkCategory.CHRONIC_DISEASE,
+                priority = WorkPriority.LOW
+            )
+        )
+        2 -> listOf(
+            PlanItem(
+                title = "ตรวจเยี่ยมบ้านวัดระดับสัญญาณชีพผู้สูงอายุติดเตียง",
+                description = "ลงพิกัดเยี่ยมประเมิน ตรวจสอบการทำกายภาพและการขับถ่ายของผู้สูงอายุ",
+                dueDate = "$currentMonth-10",
+                category = WorkCategory.ELDERLY_CARE,
+                priority = WorkPriority.HIGH
+            ),
+            PlanItem(
+                title = "ประเมินสมรรถภาพการดำเนินชีวิตประจำวัน ADL",
+                description = "ประเมินและคัดกรองระดับความช่วยเหลือของผู้สูงอายุประจำเดือน",
+                dueDate = "$currentMonth-17",
+                category = WorkCategory.ELDERLY_CARE,
+                priority = WorkPriority.MEDIUM
+            ),
+            PlanItem(
+                title = "ตรวจรับจัดเตรียมยารักษาโรคเรื้อรังส่งถึงบ้าน",
+                description = "อำนวยความสะดวกจัดหาและส่งยาแก่ผู้ป่วยสูงอายุเพื่อลดความแออัดโรงพยาบาล",
+                dueDate = "$currentMonth-24",
+                category = WorkCategory.ELDERLY_CARE,
+                priority = WorkPriority.MEDIUM
+            )
+        )
+        3 -> listOf(
+            PlanItem(
+                title = "ติดตามการฉีดวัคซีนครบกำหนดเด็กอายุ 0-5 ปี",
+                description = "ตรวจสอบความครบถ้วนของวัคซีนพื้นฐานตามสมุดบันทึกสีชมพูเชิงรุก",
+                dueDate = "$currentMonth-06",
+                category = WorkCategory.VACCINE_CHILD,
+                priority = WorkPriority.MEDIUM
+            ),
+            PlanItem(
+                title = "ชั่งน้ำหนัก วัดส่วนสูงและประเมินพัฒนาการเด็กเล็ก",
+                description = "เฝ้าระวังปัญหาโภชนาการและพัฒนาการล่าช้าในวัยก่อนเรียนรายเดือน",
+                dueDate = "$currentMonth-13",
+                category = WorkCategory.VACCINE_CHILD,
+                priority = WorkPriority.MEDIUM
+            ),
+            PlanItem(
+                title = "เยี่ยมบ้านติดตามหญิงตั้งครรภ์และหญิงหลังคลอดรายใหม่",
+                description = "ให้ความรู้และส่งเสริมการเลี้ยงลูกด้วยนมแม่ 6 เดือนแรก",
+                dueDate = "$currentMonth-20",
+                category = WorkCategory.VACCINE_CHILD,
+                priority = WorkPriority.LOW
+            )
+        )
+        else -> getStandardOsmTemplates()
     }
 }
 
