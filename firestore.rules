@@ -84,7 +84,10 @@ service cloud.firestore {
     // 7. Village assignments.
     // No client-side access. Provisioning must be done by an admin/server.
     match /village_assignments/{uid} {
-      allow read, write: if false;
+      // A user may read only their own server-provisioned assignment.
+      // No client may create, update, or delete an assignment.
+      allow read: if isNonAnonymous() && request.auth.uid == uid;
+      allow write: if false;
     }
   }
 }
