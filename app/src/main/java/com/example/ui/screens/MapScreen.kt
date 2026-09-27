@@ -12,6 +12,8 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -991,10 +993,24 @@ fun MapScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    LegendDot(color = Color(0xFF059669), label = "1-3 คน")
-                                    LegendDot(color = Color(0xFFEA580C), label = "4+ คน")
-                                    LegendDot(color = Color(0xFF7C3AED), label = "ผู้สูงอายุ")
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .horizontalScroll(rememberScrollState())
+                                        .padding(end = 4.dp)
+                                ) {
+                                    if (isHealthRiskMode) {
+                                        LegendDot(color = Color(0xFFDC2626), label = "เสี่ยงสูง")
+                                        LegendDot(color = Color(0xFFEAB308), label = "เสี่ยงปานกลาง")
+                                        LegendDot(color = Color(0xFF16A34A), label = "ปกติ")
+                                        LegendDot(color = Color(0xFF9CA3AF), label = "ยังไม่ได้ตรวจ")
+                                    } else {
+                                        LegendDot(color = Color(0xFF059669), label = "1-3 คน")
+                                        LegendDot(color = Color(0xFFEA580C), label = "4+ คน")
+                                        LegendDot(color = Color(0xFF7C3AED), label = "ผู้สูงอายุ")
+                                    }
                                 }
                                 if (unmappedHouses.isNotEmpty()) {
                                     TextButton(
