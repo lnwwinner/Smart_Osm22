@@ -642,7 +642,7 @@ fun VhvRegistrationScreen(
                             return@Button
                         }
                         isSubmitting = true
-                        authViewModel.saveSurveyorProfile(
+                        val result = authViewModel.saveSurveyorProfile(
                             context = context,
                             fullName = fullName,
                             villageNo = assignment.villageNo,
@@ -658,12 +658,25 @@ fun VhvRegistrationScreen(
                             photoUrl = photoUrlUri?.toString(),
                             vhvCardPhotoUrl = cardPhotoUri?.toString()
                         )
+                        isSubmitting = false
 
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            isSubmitting = false
-                            Toast.makeText(context, "บันทึกข้อมูลสมาชิก อสม. เรียบร้อยแล้ว", Toast.LENGTH_LONG).show()
-                            onRegistrationSuccess()
-                        }, 800)
+                        result.fold(
+                            onSuccess = {
+                                Toast.makeText(
+                                    context,
+                                    "บันทึกข้อมูลสมาชิก อสม. เรียบร้อยแล้ว",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                onRegistrationSuccess()
+                            },
+                            onFailure = { error ->
+                                Toast.makeText(
+                                    context,
+                                    error.message ?: "ไม่สามารถบันทึกข้อมูลสมาชิก อสม. ได้",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
