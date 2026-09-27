@@ -61,7 +61,9 @@ fun DashboardScreen(
     val totalPersonsCount by viewModel.totalPersonsCount.collectAsStateWithLifecycle()
     val totalHouseholdsCount by viewModel.totalHouseholdsCount.collectAsStateWithLifecycle()
     val ageGroupSummary by viewModel.ageGroupSummary.collectAsStateWithLifecycle()
+    val allScreenings by viewModel.allScreenings.collectAsStateWithLifecycle()
 
+    var selectedStatsTab by remember { mutableStateOf(0) } // 0: Age, 1: NCDs, 2: Gender
     val isDark = isSystemInDarkTheme()
 
     var showNotificationDialog by remember { mutableStateOf(false) }
@@ -646,7 +648,7 @@ fun DashboardScreen(
                 }
             }
 
-            // 5. Demographic Age Breakdown (Layered Card with Progress Meters)
+            // 5. Demographic & Health Analytical Dashboard (Interactive Segment)
             item {
                 Column(modifier = Modifier.padding(top = 2.dp)) {
                     Row(
@@ -657,23 +659,53 @@ fun DashboardScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "โครงสร้างประชากรตามช่วงวัย",
+                            text = "รายงานวิเคราะห์สุขภาวะชุมชน",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            text = "${ageGroupSummary.values.sum()} รายการ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    }
+
+                    // Interactive Tab Row
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf("ช่วงวัยประชากร", "ความเสี่ยง NCDs", "สัดส่วนเพศ").forEachIndexed { index, title ->
+                                val isSelected = selectedStatsTab == index
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) EmeraldPrimary else Color.Transparent)
+                                        .clickable { selectedStatsTab = index }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = title,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .shadow(
-                                elevation = 4.dp,
+                                elevation = 6.dp,
                                 shape = RoundedCornerShape(20.dp),
                                 spotColor = CardShadowTint
                             ),
@@ -685,60 +717,216 @@ fun DashboardScreen(
                             modifier = Modifier.padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            if (ageGroupSummary.isEmpty()) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(
-                                        Icons.Filled.Analytics,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(36.dp)
+                            if (selectedStatsTab == 0) {
+                                // --- TAB 0: AGE STRUCTURE ---
+                                if (ageGroupSummary.isEmpty()) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.Analytics,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            "ยังไม่มีข้อมูลวันเกิดประชากรในระบบ",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    val standardGroups = listOf(
+                                        "0-5 ปี",
+                                        "6-24 ปี",
+                                        "25-59 ปี",
+                                        "60 ปีขึ้นไป"
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "ยังไม่มีข้อมูลวันเกิดประชากรในระบบ",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    val dataList = listOf(
+                                        ageGroupSummary["เด็กปฐมวัย (0-5 ปี)"] ?: 0,
+                                        ageGroupSummary["เด็กโตและวัยรุ่น (6-24 ปี)"] ?: 0,
+                                        ageGroupSummary["วัยทำงาน (25-59 ปี)"] ?: 0,
+                                        ageGroupSummary["ผู้สูงอายุ (60 ปีขึ้นไป)"] ?: 0
+                                    )
+
+                                    val chartEntryModel = com.patrykandpatrick.vico.core.entry.entryModelOf(*dataList.map { it.toFloat() }.toTypedArray())
+
+                                    com.patrykandpatrick.vico.compose.chart.Chart(
+                                        chart = com.patrykandpatrick.vico.compose.chart.column.columnChart(
+                                            columns = listOf(com.patrykandpatrick.vico.compose.component.lineComponent(
+                                                color = EmeraldPrimary,
+                                                thickness = 16.dp,
+                                                shape = com.patrykandpatrick.vico.core.component.shape.Shapes.roundedCornerShape(topLeftPercent = 50, topRightPercent = 50)
+                                            ))
+                                        ),
+                                        model = chartEntryModel,
+                                        startAxis = com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis(
+                                            valueFormatter = { value, _ -> value.toInt().toString() }
+                                        ),
+                                        bottomAxis = com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis(
+                                            valueFormatter = { value, _ -> standardGroups.getOrNull(value.toInt()) ?: "" },
+                                            labelRotationDegrees = -45f
+                                        ),
+                                        modifier = Modifier.fillMaxWidth().height(220.dp)
                                     )
                                 }
+                            } else if (selectedStatsTab == 1) {
+                                // --- TAB 1: NCDs CLINIC RISK PROFILE ---
+                                val validBpScreenings = allScreenings.filter { it.systolic != null && it.diastolic != null }
+                                val validSugarScreenings = allScreenings.filter { it.bloodSugar != null }
+                                val validBmiScreenings = allScreenings.filter { it.bmi != null }
+
+                                if (allScreenings.isEmpty()) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.MonitorHeart,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            "ยังไม่มีข้อมูลบันทึกการคัดกรองในหมู่บ้าน",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    Text("กลุ่มเสี่ยงและระดับความเสี่ยงของประชากร", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+                                    // BP breakdown
+                                    val bpHigh = validBpScreenings.count { it.systolic!! >= 140 || it.diastolic!! >= 90 }
+                                    val bpPreHigh = validBpScreenings.count { (it.systolic!! in 130..139) || (it.diastolic!! in 85..89) }
+                                    val bpNormal = validBpScreenings.size - bpHigh - bpPreHigh
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("ระดับความดันโลหิต (คัดกรองทั้งหมด ${validBpScreenings.size} คน)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                        CustomStackedMeter(
+                                            greenValue = bpNormal,
+                                            orangeValue = bpPreHigh,
+                                            redValue = bpHigh,
+                                            greenLabel = "ปกติ",
+                                            orangeLabel = "เริ่มสูง",
+                                            redLabel = "สูงอันตราย"
+                                        )
+                                    }
+
+                                    // Sugar breakdown
+                                    val sugarHigh = validSugarScreenings.count { it.bloodSugar!! >= 126 }
+                                    val sugarPreHigh = validSugarScreenings.count { it.bloodSugar!! in 100..125 }
+                                    val sugarNormal = validSugarScreenings.size - sugarHigh - sugarPreHigh
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("ระดับน้ำตาลในเลือด (คัดกรองทั้งหมด ${validSugarScreenings.size} คน)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                        CustomStackedMeter(
+                                            greenValue = sugarNormal,
+                                            orangeValue = sugarPreHigh,
+                                            redValue = sugarHigh,
+                                            greenLabel = "ปกติ",
+                                            orangeLabel = "เริ่มสูง",
+                                            redLabel = "เสี่ยงเบาหวาน"
+                                        )
+                                    }
+
+                                    // BMI breakdown
+                                    val bmiObese = validBmiScreenings.count { it.bmi!! >= 25.0 }
+                                    val bmiOverweight = validBmiScreenings.count { it.bmi!! >= 23.0 && it.bmi!! < 25.0 }
+                                    val bmiNormal = validBmiScreenings.size - bmiObese - bmiOverweight
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text("ดัชนีมวลกาย BMI (คัดกรองทั้งหมด ${validBmiScreenings.size} คน)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                        CustomStackedMeter(
+                                            greenValue = bmiNormal,
+                                            orangeValue = bmiOverweight,
+                                            redValue = bmiObese,
+                                            greenLabel = "สมส่วน",
+                                            orangeLabel = "ท้วม",
+                                            redLabel = "อ้วน"
+                                        )
+                                    }
+                                }
                             } else {
-                                val standardGroups = listOf(
-                                    "0-5 ปี",
-                                    "6-24 ปี",
-                                    "25-59 ปี",
-                                    "60 ปีขึ้นไป"
-                                )
-                                val dataList = listOf(
-                                    ageGroupSummary["เด็กปฐมวัย (0-5 ปี)"] ?: 0,
-                                    ageGroupSummary["เด็กโตและวัยรุ่น (6-24 ปี)"] ?: 0,
-                                    ageGroupSummary["วัยทำงาน (25-59 ปี)"] ?: 0,
-                                    ageGroupSummary["ผู้สูงอายุ (60 ปีขึ้นไป)"] ?: 0
-                                )
+                                // --- TAB 2: GENDER DISTRIBUTION ---
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    val totalCount = maleCount + femaleCount
+                                    val malePercent = if (totalCount > 0) (maleCount.toFloat() / totalCount) else 0f
+                                    val femalePercent = if (totalCount > 0) (femaleCount.toFloat() / totalCount) else 0f
 
-                                val chartEntryModel = com.patrykandpatrick.vico.core.entry.entryModelOf(*dataList.map { it.toFloat() }.toTypedArray())
+                                    Text(
+                                        text = "อัตราส่วนเพศในพื้นที่รับผิดชอบ",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
 
-                                com.patrykandpatrick.vico.compose.chart.Chart(
-                                    chart = com.patrykandpatrick.vico.compose.chart.column.columnChart(
-                                        columns = listOf(com.patrykandpatrick.vico.compose.component.lineComponent(
-                                            color = MaterialTheme.colorScheme.primary,
-                                            thickness = 16.dp,
-                                            shape = com.patrykandpatrick.vico.core.component.shape.Shapes.roundedCornerShape(topLeftPercent = 50, topRightPercent = 50)
-                                        ))
-                                    ),
-                                    model = chartEntryModel,
-                                    startAxis = com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis(
-                                        valueFormatter = { value, _ -> value.toInt().toString() }
-                                    ),
-                                    bottomAxis = com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis(
-                                        valueFormatter = { value, _ -> standardGroups.getOrNull(value.toInt()) ?: "" },
-                                        labelRotationDegrees = -45f
-                                    ),
-                                    modifier = Modifier.fillMaxWidth().height(220.dp)
-                                )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Male details
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Filled.Male, contentDescription = "ชาย", tint = Color(0xFF0284C7), modifier = Modifier.size(28.dp))
+                                            Text("เพศชาย", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("$maleCount คน", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+                                            Text("${(malePercent * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                        }
+
+                                        // Female details
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Filled.Female, contentDescription = "หญิง", tint = Color(0xFFDB2777), modifier = Modifier.size(28.dp))
+                                            Text("เพศหญิง", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("$femaleCount คน", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFDB2777))
+                                            Text("${(femalePercent * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+
+                                    // Visual Segmented Bar
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(14.dp)
+                                            .clip(RoundedCornerShape(100.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    ) {
+                                        Row(modifier = Modifier.fillMaxSize()) {
+                                            if (malePercent > 0) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxHeight()
+                                                        .weight(malePercent)
+                                                        .background(Color(0xFF0284C7))
+                                                )
+                                            }
+                                            if (femalePercent > 0) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxHeight()
+                                                        .weight(femalePercent)
+                                                        .background(Color(0xFFDB2777))
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1103,6 +1291,111 @@ fun StatusItemPill(
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                 color = color
             )
+        }
+    }
+}
+
+@Composable
+fun CustomStackedMeter(
+    greenValue: Int,
+    orangeValue: Int,
+    redValue: Int,
+    greenLabel: String,
+    orangeLabel: String,
+    redLabel: String,
+    modifier: Modifier = Modifier
+) {
+    val total = (greenValue + orangeValue + redValue).coerceAtLeast(1)
+    val greenWeight = greenValue.toFloat() / total
+    val orangeWeight = orangeValue.toFloat() / total
+    val redWeight = redValue.toFloat() / total
+
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(RoundedCornerShape(100.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (greenWeight > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(greenWeight)
+                            .background(Color(0xFF2E7D32))
+                    )
+                }
+                if (orangeWeight > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(orangeWeight)
+                            .background(Color(0xFFF57C00))
+                    )
+                }
+                if (redWeight > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(redWeight)
+                            .background(Color(0xFFD32F2F))
+                    )
+                }
+            }
+        }
+
+        // Legends with counts & percentages
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Green legend
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF2E7D32)))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "$greenLabel: $greenValue (${(greenWeight * 100).toInt()}%)",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Orange legend
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFF57C00)))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "$orangeLabel: $orangeValue (${(orangeWeight * 100).toInt()}%)",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Red legend
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFFD32F2F)))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "$redLabel: $redValue (${(redWeight * 100).toInt()}%)",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }
