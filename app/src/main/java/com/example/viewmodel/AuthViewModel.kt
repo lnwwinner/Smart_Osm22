@@ -182,14 +182,14 @@ class AuthViewModel(
         authManager.loadSurveyorProfile(context)
     }
 
-    fun saveSurveyorProfile(
+    suspend fun saveSurveyorProfile(
         context: Context,
         fullName: String? = null,
         villageNo: String,
         villageName: String,
-        subdistrict: String = "ต.ป่าขะ",
-        district: String = "อ.บ้านนา",
-        province: String = "จ.นครนายก",
+        subdistrict: String = "",
+        district: String = "",
+        province: String = "",
         phone: String? = null,
         role: String? = "อสม. ประจำหมู่บ้าน",
         vhvCardId: String? = null,
@@ -197,8 +197,8 @@ class AuthViewModel(
         healthCenter: String? = null,
         photoUrl: String? = null,
         vhvCardPhotoUrl: String? = null
-    ) {
-        authManager.saveSurveyorProfile(
+    ): Result<UserProfile> {
+        return authManager.saveSurveyorProfile(
             context = context,
             fullName = fullName,
             villageNo = villageNo,
