@@ -45,6 +45,12 @@ service cloud.firestore {
     }
     
     // 5. VHV Members collection
+    match /health_screenings/{screeningUuid} {
+      allow read, write: if isAuthenticated() &&
+        (resource == null || hasVillageAccess(resource.data.villageNo)) &&
+        (request.resource == null || hasVillageAccess(request.resource.data.villageNo));
+    }
+
     match /vhv_members/{memberId} {
       allow read: if isAuthenticated() && (resource == null || hasVillageAccess(resource.data.villageNo));
       allow write: if isAuthenticated() && (resource == null || hasVillageAccess(resource.data.villageNo)) && (request.resource == null || hasVillageAccess(request.resource.data.villageNo));
