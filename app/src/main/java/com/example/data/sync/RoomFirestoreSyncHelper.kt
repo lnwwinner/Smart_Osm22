@@ -367,11 +367,11 @@ open class RoomFirestoreSyncHelper(
      * Deletes a health screening from Firestore and writes a tombstone atomically.
      * The tombstone prevents a later Room-to-Firestore or Firestore-to-Room sync from resurrecting it.
      */
-    suspend fun deleteHealthScreeningFromFirestore(screeningUuid: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun deleteHealthScreeningFromFirestore(screeningUuid: String, villageNo: String? = null): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val firestore = getFirestore()
             val screening = repository.getScreeningByUuid(screeningUuid)
-            val villageNo = screening?.villageNo ?: ""
+            val resolvedVillageNo = villageNo ?: screening?.villageNo ?: ""
             val timestamp = System.currentTimeMillis()
             val batch = firestore.batch()
 
