@@ -19,7 +19,7 @@ service cloud.firestore {
 
     // 1. Users collection
     match /users/{uid} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && request.auth.uid == uid;
       allow write: if isAuthenticated() && request.auth.uid == uid;
     }
 
@@ -46,7 +46,7 @@ service cloud.firestore {
     
     // 5. VHV Members collection
     match /vhv_members/{memberId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (resource == null || hasVillageAccess(resource.data.villageNo));
       allow write: if isAuthenticated() && (resource == null || hasVillageAccess(resource.data.villageNo)) && (request.resource == null || hasVillageAccess(request.resource.data.villageNo));
     }
   }
