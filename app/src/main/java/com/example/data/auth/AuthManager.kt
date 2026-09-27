@@ -414,9 +414,7 @@ data class VillageAssignment(
                 return@withContext Result.failure(IllegalStateException("บัญชี Anonymous ยังไม่ได้รับอนุญาตให้เข้าถึงพื้นที่"))
             }
 
-            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance(
-                "ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f"
-            )
+            val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
             val snapshot = firestore.collection("village_assignments")
                 .document(user.uid)
                 .get()
