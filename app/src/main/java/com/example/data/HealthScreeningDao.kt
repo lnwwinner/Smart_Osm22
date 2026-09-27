@@ -26,4 +26,7 @@ interface HealthScreeningDao {
 
     @Query("SELECT * FROM health_screenings WHERE screeningUuid = :uuid LIMIT 1")
     suspend fun getScreeningByUuid(uuid: String): HealthScreening?
+
+    @Query("SELECT * FROM health_screenings WHERE screeningUuid IN (:uuids)")
+    suspend fun getScreeningsByUuids(uuids: List<String>): List<HealthScreening>
 }
