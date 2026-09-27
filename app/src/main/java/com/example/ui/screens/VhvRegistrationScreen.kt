@@ -632,7 +632,8 @@ fun VhvRegistrationScreen(
                             selectedTab = 0
                             return@Button
                         }
-                        if (villageAssignment == null) {
+                        val assignment = villageAssignment
+                        if (assignment == null) {
                             Toast.makeText(
                                 context,
                                 villageAssignmentError ?: "ยังไม่ได้รับการกำหนดพื้นที่รับผิดชอบ ไม่สามารถบันทึกข้อมูลได้",
@@ -644,11 +645,11 @@ fun VhvRegistrationScreen(
                         authViewModel.saveSurveyorProfile(
                             context = context,
                             fullName = fullName,
-                            villageNo = villageNo,
-                            villageName = villageName,
-                            subdistrict = subdistrict,
-                            district = district,
-                            province = province,
+                            villageNo = assignment.villageNo,
+                            villageName = assignment.villageName.ifBlank { "หมู่ ${assignment.villageNo}" },
+                            subdistrict = assignment.subdistrict.ifBlank { subdistrict },
+                            district = assignment.district.ifBlank { district },
+                            province = assignment.province.ifBlank { province },
                             phone = phoneNumber,
                             role = roleTitle,
                             vhvCardId = vhvCardId,
