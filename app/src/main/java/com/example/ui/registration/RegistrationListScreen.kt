@@ -15,6 +15,34 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.Person
 import com.example.viewmodel.PersonViewModel
 
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.ui.graphics.Color
+import com.example.data.sync.SyncState
+
+@Composable
+fun SyncStatusBar(syncState: SyncState) {
+    val (text, color) = when (syncState) {
+        is SyncState.Idle -> "ข้อมูลล่าสุด" to Color.Gray
+        is SyncState.Syncing -> "กำลังซิงค์ข้อมูล..." to Color.Blue
+        is SyncState.Success -> "ซิงค์ล่าสุด: ${java.time.format.DateTimeFormatter.ISO_LOCAL_TIME.format(java.time.LocalDateTime.now())}" to Color(0xFF388E3C)
+        is SyncState.Error -> "ข้อผิดพลาดในการซิงค์" to Color.Red
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = color.copy(alpha = 0.1f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Sync, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
+        }
+    }
+}
+
 @Composable
 fun RegistrationListScreen(
     viewModel: PersonViewModel,
@@ -22,6 +50,7 @@ fun RegistrationListScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val allPersons by viewModel.allPersons.collectAsStateWithLifecycle()
+    val syncState by viewModel.syncState.collectAsStateWithLifecycle()
 
     val filteredPersons by remember(allPersons, searchQuery) {
         derivedStateOf {
@@ -39,17 +68,20 @@ fun RegistrationListScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .testTag("search_bar"),
-                placeholder = { Text("ค้นหาชื่อ หรือ เลขบัตร...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                singleLine = true
-            )
+            Column {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .testTag("search_bar"),
+                    placeholder = { Text("ค้นหาชื่อ หรือ เลขบัตร...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    singleLine = true
+                )
+                SyncStatusBar(syncState)
+            }
         }
     ) { paddingValues ->
         LazyColumn(
