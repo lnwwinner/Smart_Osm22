@@ -37,8 +37,14 @@ data class UserProfile(
     val vhvCardId: String? = null,
     val citizenId: String? = null,
     val healthCenter: String? = null,
-    val vhvCardPhotoUrl: String? = null
+    val vhvCardPhotoUrl: String? = null,
+    val activeMembership: com.example.data.membership.UserMembership? = null
 ) {
+    /**
+     * Area Identity linking to geographical territory
+     */
+    val villageId: String
+        get() = activeMembership?.villageId ?: "village_nayok_m$villageNo"
     /**
      * True if this profile represents an authenticated Firebase user with a valid UID.
      */

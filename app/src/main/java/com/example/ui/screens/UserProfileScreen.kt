@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Login
@@ -706,18 +707,25 @@ private fun UserDetailsSection(
                 value = profile.displayName ?: "ไม่ได้ระบุ (No Display Name)"
             )
 
-            // Area / Village Row
+            // Area Identity Row
             DetailItemRow(
                 icon = Icons.Filled.Place,
-                title = "พื้นที่รับผิดชอบ (Area / Village)",
+                title = "รหัสพื้นที่รับผิดชอบ (Area Identity: villageId)",
+                value = profile.villageId
+            )
+
+            // Area / Village Row
+            DetailItemRow(
+                icon = Icons.Filled.Home,
+                title = "ชื่อพื้นที่รับผิดชอบ (Village)",
                 value = "${profile.villageName} (${profile.subdistrict} ${profile.district} ${profile.province})"
             )
 
-            // Role Row
+            // Role & Membership Row
             DetailItemRow(
                 icon = Icons.Filled.VerifiedUser,
-                title = "ตำแหน่ง / สิทธิ์การใช้งาน",
-                value = profile.roleTitle
+                title = "สถานะสิทธิ์การปฏิบัติงาน (Membership & Role)",
+                value = "${profile.activeMembership?.role?.titleThai ?: profile.roleTitle} (${profile.activeMembership?.status?.labelThai ?: "Active"})"
             )
 
             // Email Row

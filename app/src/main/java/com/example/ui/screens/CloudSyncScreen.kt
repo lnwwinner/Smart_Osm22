@@ -36,6 +36,7 @@ import com.example.viewmodel.PersonViewModel
 @Composable
 fun CloudSyncScreen(
     viewModel: PersonViewModel,
+    authViewModel: com.example.viewmodel.AuthViewModel? = null,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -612,7 +613,9 @@ fun CloudSyncScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.commitCurrentImportPlan { success, msg ->
+                        val opUid = authViewModel?.currentUid
+                        val opName = authViewModel?.userProfile?.value?.safeDisplayName
+                        viewModel.commitCurrentImportPlan(opUid, opName) { success, msg ->
                             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                         }
                     },
@@ -661,7 +664,7 @@ fun CloudSyncScreen(
                         Text("${importResult!!.failedCount} รายการ", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                     }
                     
-                    Divider(modifier = Modifier.padding(vertical = 4.dp), color = HairlineBorder)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = HairlineBorder)
                     Text("รายละเอียดจำแนกข้อผิดพลาด:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     Text("- ข้อมูลซ้ำ: ${importResult!!.duplicateCount}", style = MaterialTheme.typography.bodySmall)
                     Text("- เลขบัตร ปชช. ไม่ถูกต้อง: ${importResult!!.invalidNationalIdCount}", style = MaterialTheme.typography.bodySmall)

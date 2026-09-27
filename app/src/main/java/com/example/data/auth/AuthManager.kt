@@ -53,6 +53,9 @@ open class AuthManager(
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     open val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
 
+    var membershipRepository: com.example.data.membership.MembershipRepository = com.example.data.membership.MembershipRepository()
+    open val activeMembership: StateFlow<com.example.data.membership.UserMembership?> = membershipRepository.activeMembershipFlow
+
     private var _localProfile: UserProfile? = null
 
     val currentUid: String?
@@ -126,8 +129,21 @@ open class AuthManager(
             val displayName = prefs.getString("local_user_name", null)
             val photoUrl = prefs.getString("local_user_photo", null)
 
+            val uid = _currentUser.value?.uid ?: localUid
+            val membership = membershipRepository.createDefaultMembership(uid, cachedVillageNo).copy(
+                villageName = cachedVillageName,
+                subdistrict = cachedSubdistrict,
+                district = cachedDistrict,
+                province = cachedProvince,
+                role = when {
+                    cachedRoleTitle.contains("ประธาน") || cachedRoleTitle.contains("หัวหน้า") -> com.example.data.membership.MembershipRole.VHV_LEADER
+                    cachedRoleTitle.contains("เจ้าหน้าที่") -> com.example.data.membership.MembershipRole.ADMIN
+                    else -> com.example.data.membership.MembershipRole.VHV_MEMBER
+                }
+            )
+
             val profile = UserProfile(
-                uid = _currentUser.value?.uid ?: localUid,
+                uid = uid,
                 displayName = displayName ?: _currentUser.value?.displayName,
                 email = prefs.getString("local_user_email", _currentUser.value?.email),
                 photoUrl = photoUrl ?: _currentUser.value?.photoUrl?.toString(),
@@ -147,7 +163,8 @@ open class AuthManager(
                 vhvCardId = cachedVhvCardId,
                 citizenId = cachedCitizenId,
                 healthCenter = cachedHealthCenter,
-                vhvCardPhotoUrl = cachedVhvCardPhotoUrl
+                vhvCardPhotoUrl = cachedVhvCardPhotoUrl,
+                activeMembership = membership
             )
             _localProfile = profile
             _userProfile.value = profile

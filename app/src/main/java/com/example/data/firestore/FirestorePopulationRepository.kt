@@ -619,6 +619,11 @@ open class FirestorePopulationRepository(
     // =========================================================================
 
     fun householdToMap(household: Household, userUid: String? = null): Map<String, Any?> {
+        if (!userUid.isNullOrBlank()) {
+            require(household.householdUuid != userUid) {
+                "Security Breach: user.uid ($userUid) cannot substitute householdUuid"
+            }
+        }
         return mapOf(
             "householdUuid" to household.householdUuid,
             "houseNo" to household.houseNo,
@@ -645,6 +650,14 @@ open class FirestorePopulationRepository(
         userUid: String? = null,
         villageNo: String = ""
     ): Map<String, Any?> {
+        if (!userUid.isNullOrBlank()) {
+            require(person.personUuid != userUid) {
+                "Security Breach: user.uid ($userUid) cannot substitute personUuid"
+            }
+            require(householdUuid != userUid) {
+                "Security Breach: user.uid ($userUid) cannot substitute householdUuid"
+            }
+        }
         return mapOf(
             "personUuid" to person.personUuid,
             "householdUuid" to householdUuid,

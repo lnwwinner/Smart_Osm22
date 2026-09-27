@@ -300,6 +300,7 @@ fun AppNavigation(
             composable("cloud_sync") {
                 CloudSyncScreen(
                     viewModel = viewModel,
+                    authViewModel = authViewModel,
                     onBack = { navController.popBackStack() }
                 )
             }

@@ -268,7 +268,11 @@ class ExcelImportUseCase(
         )
     }
 
-    suspend fun commitImportPlan(plan: ImportPlan): ExcelImportResult {
+    suspend fun commitImportPlan(
+        plan: ImportPlan,
+        operatorUid: String? = null,
+        operatorName: String? = null
+    ): ExcelImportResult {
         var successCount = 0
         var failedCount = plan.errors.size
         var duplicateCount = 0
@@ -288,6 +292,16 @@ class ExcelImportUseCase(
 
             for (item in plan.plannedItems) {
                 if (item.action == ImportAction.SKIP) continue
+
+                // Strict Identity Separation Assertion: user.uid can NEVER substitute personUuid or householdUuid
+                if (!operatorUid.isNullOrBlank()) {
+                    require(item.personData.personUuid != operatorUid) {
+                        "Data Integrity Error: user.uid cannot substitute personUuid (${item.personData.personUuid} == $operatorUid)"
+                    }
+                    require(item.householdData.householdUuid != operatorUid) {
+                        "Data Integrity Error: user.uid cannot substitute householdUuid (${item.householdData.householdUuid} == $operatorUid)"
+                    }
+                }
 
                 if (item.isDuplicateUuid) {
                     duplicateCount++
@@ -342,8 +356,8 @@ class ExcelImportUseCase(
                                 action = "UPDATE_EXCEL",
                                 oldValue = existingPerson.toString(),
                                 newValue = updated.toString(),
-                                operatorId = "IMPORT_USER",
-                                operatorName = "Excel Importer",
+                                operatorId = operatorUid ?: "IMPORT_USER",
+                                operatorName = operatorName ?: "Excel Importer",
                                 role = "ADMIN",
                                 deviceId = "local",
                                 source = "EXCEL_IMPORT"
@@ -364,8 +378,8 @@ class ExcelImportUseCase(
                                 action = "CREATE_EXCEL",
                                 oldValue = null,
                                 newValue = insertedPerson.toString(),
-                                operatorId = "IMPORT_USER",
-                                operatorName = "Excel Importer",
+                                operatorId = operatorUid ?: "IMPORT_USER",
+                                operatorName = operatorName ?: "Excel Importer",
                                 role = "ADMIN",
                                 deviceId = "local",
                                 source = "EXCEL_IMPORT"

@@ -168,9 +168,16 @@ open class RoomFirestoreSyncHelper(
             var householdsSynced = 0
             var personsSynced = 0
 
+            val currentUid = try {
+                context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                    .getString("local_user_uid", null)
+            } catch (e: Exception) {
+                null
+            }
+
             for (h in households) {
                 val docRef = firestore.collection(COLLECTION_HOUSEHOLDS).document(h.householdUuid)
-                val data = householdToMap(h)
+                val data = householdToMap(h, currentUid)
                 batch.set(docRef, data, SetOptions.merge())
                 opsInBatch++
                 householdsSynced++
@@ -185,7 +192,7 @@ open class RoomFirestoreSyncHelper(
             for (p in filteredPersons) {
                 val parentHousehold = householdMap[p.householdId] ?: continue
                 val docRef = firestore.collection(COLLECTION_PERSONS).document(p.personUuid)
-                val data = personToMap(p, parentHousehold.householdUuid, parentHousehold.houseNo, parentHousehold.villageNo)
+                val data = personToMap(p, parentHousehold.householdUuid, parentHousehold.houseNo, parentHousehold.villageNo, currentUid)
                 batch.set(docRef, data, SetOptions.merge())
                 opsInBatch++
                 personsSynced++
@@ -534,7 +541,12 @@ open class RoomFirestoreSyncHelper(
     // MAPPERS & UTILITIES
     // =========================================================================
 
-    private fun householdToMap(household: Household): Map<String, Any?> {
+    private fun householdToMap(household: Household, operatorUid: String? = null): Map<String, Any?> {
+        if (!operatorUid.isNullOrBlank()) {
+            require(household.householdUuid != operatorUid) {
+                "Security Breach: user.uid ($operatorUid) cannot substitute householdUuid"
+            }
+        }
         return mapOf(
             "householdUuid" to household.householdUuid,
             "houseNo" to household.houseNo,
@@ -548,11 +560,20 @@ open class RoomFirestoreSyncHelper(
             "locationCapturedAt" to household.locationCapturedAt,
             "locationProvider" to household.locationProvider,
             "dataStatus" to household.dataStatus.name,
-            "updatedAt" to household.lastModified
+            "updatedAt" to household.lastModified,
+            "syncedByUid" to operatorUid
         )
     }
 
-    private fun personToMap(person: Person, householdUuid: String, householdHouseNo: String, villageNo: String = ""): Map<String, Any?> {
+    private fun personToMap(person: Person, householdUuid: String, householdHouseNo: String, villageNo: String = "", operatorUid: String? = null): Map<String, Any?> {
+        if (!operatorUid.isNullOrBlank()) {
+            require(person.personUuid != operatorUid) {
+                "Security Breach: user.uid ($operatorUid) cannot substitute personUuid"
+            }
+            require(householdUuid != operatorUid) {
+                "Security Breach: user.uid ($operatorUid) cannot substitute householdUuid"
+            }
+        }
         return mapOf(
             "personUuid" to person.personUuid,
             "householdUuid" to householdUuid,
@@ -566,7 +587,8 @@ open class RoomFirestoreSyncHelper(
             "houseStatus" to person.houseStatus.name,
             "personStatus" to person.personStatus.name,
             "dataStatus" to person.dataStatus.name,
-            "updatedAt" to person.lastModified
+            "updatedAt" to person.lastModified,
+            "syncedByUid" to operatorUid
         )
     }
 

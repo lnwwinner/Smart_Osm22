@@ -30,6 +30,13 @@ class AuthViewModel(
 
     val currentUser: StateFlow<FirebaseUser?> = authManager.currentUser
     val userProfile: StateFlow<UserProfile?> = authManager.userProfile
+    val activeMembership: StateFlow<com.example.data.membership.UserMembership?> = authManager.activeMembership
+
+    val currentUid: String?
+        get() = authManager.currentUid
+
+    val activeVillageId: String?
+        get() = authManager.userProfile.value?.villageId
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()

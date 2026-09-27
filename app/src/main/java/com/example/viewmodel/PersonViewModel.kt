@@ -295,7 +295,11 @@ class PersonViewModel(
         }
     }
 
-    fun commitCurrentImportPlan(onComplete: (Boolean, String) -> Unit) {
+    fun commitCurrentImportPlan(
+        operatorUid: String? = null,
+        operatorName: String? = null,
+        onComplete: (Boolean, String) -> Unit
+    ) {
         val plan = _importPlan.value
         if (plan == null) {
             onComplete(false, "ไม่พบแผนการนำเข้าที่กำลังรอดำเนินการ")
@@ -304,7 +308,7 @@ class PersonViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             _isImporting.value = true
             try {
-                val result = excelImportUseCase.commitImportPlan(plan)
+                val result = excelImportUseCase.commitImportPlan(plan, operatorUid, operatorName)
                 _importResult.value = result
                 _importPlan.value = null
                 withContext(Dispatchers.Main) {
