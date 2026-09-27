@@ -24,6 +24,9 @@ interface HealthScreeningDao {
     @Query("SELECT * FROM health_screenings ORDER BY timestamp DESC")
     fun getAllScreenings(): Flow<List<HealthScreening>>
 
+    @Query("SELECT * FROM health_screenings ORDER BY timestamp DESC")
+    suspend fun getAllScreeningsList(): List<HealthScreening>
+
     @Query("SELECT * FROM health_screenings WHERE screeningUuid = :uuid LIMIT 1")
     suspend fun getScreeningByUuid(uuid: String): HealthScreening?
 
