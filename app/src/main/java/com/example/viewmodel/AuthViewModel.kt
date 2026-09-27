@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.auth.AuthManager
+import com.example.data.auth.VillageAssignment
 import com.example.data.auth.UserProfile
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,8 +32,36 @@ class AuthViewModel(
     val currentUser: StateFlow<FirebaseUser?> = authManager.currentUser
     val userProfile: StateFlow<UserProfile?> = authManager.userProfile
 
+    private val _villageAssignment = MutableStateFlow<VillageAssignment?>(null)
+    val villageAssignment: StateFlow<VillageAssignment?> = _villageAssignment.asStateFlow()
+
+    private val _villageAssignmentLoading = MutableStateFlow(false)
+    val villageAssignmentLoading: StateFlow<Boolean> = _villageAssignmentLoading.asStateFlow()
+
+    private val _villageAssignmentError = MutableStateFlow<String?>(null)
+    val villageAssignmentError: StateFlow<String?> = _villageAssignmentError.asStateFlow()
+
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    fun loadVillageAssignment() {
+        _villageAssignmentLoading.value = true
+        _villageAssignmentError.value = null
+        viewModelScope.launch {
+            val result = authManager.getAssignedVillage()
+            result.fold(
+                onSuccess = { assignment ->
+                    _villageAssignment.value = assignment
+                    _villageAssignmentError.value = null
+                },
+                onFailure = { error ->
+                    _villageAssignment.value = null
+                    _villageAssignmentError.value = error.message ?: "ไม่สามารถอ่านพื้นที่รับผิดชอบได้"
+                }
+            )
+            _villageAssignmentLoading.value = false
+        }
+    }
 
     fun resetState() {
         _uiState.value = AuthUiState.Idle
