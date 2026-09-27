@@ -207,6 +207,8 @@ class PersonRepository(
         return healthScreeningDao.getScreeningByUuid(uuid)
     }
 
+    suspend fun getAllScreeningsList(): List<HealthScreening> = healthScreeningDao.getAllScreeningsList()
+
     suspend fun getAllHouseholds(): List<Household> = householdDao.getAllHouseholds()
     suspend fun getAllPersonsList(): List<Person> = personDao.getAllPersonsList()
 }
