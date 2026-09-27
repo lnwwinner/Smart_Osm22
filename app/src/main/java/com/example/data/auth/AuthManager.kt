@@ -352,7 +352,7 @@ data class VillageAssignment(
             // Sync user profile to Firestore users collection
             try {
                 if (profile.uid.isNotBlank()) {
-                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance("ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f")
+                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
                     val userMap = mapOf(
                         "uid" to profile.uid,
                         "displayName" to profile.displayName,
