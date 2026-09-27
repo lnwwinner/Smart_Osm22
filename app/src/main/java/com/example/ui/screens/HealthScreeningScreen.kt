@@ -1,6 +1,14 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -119,19 +127,34 @@ fun HealthScreeningScreen(
                 .padding(padding)
         ) {
             if (screenings.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.History,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.health_screening_empty),
+                            contentDescription = "ไม่มีประวัติการคัดกรอง",
+                            modifier = Modifier
+                                .size(180.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp)),
+                            contentScale = ContentScale.Crop
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
                         Text(
                             stringResource(R.string.no_screening_history),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.outline
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "เริ่มบันทึกค่าดัชนีมวลกาย ความดันโลหิต และค่าน้ำตาลในเลือดครั้งแรกโดยกดปุ่มเครื่องหมายบวกด้านล่าง",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp)
                         )
                     }
                 }
@@ -141,16 +164,117 @@ fun HealthScreeningScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
+                    // Latest Screening summary dashboard at the very top
+                    item {
+                        val latest = screenings.firstOrNull()
+                        if (latest != null) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "สรุปดัชนีสุขภาพล่าสุด",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        // 1. BMI Card
+                                        if (latest.bmi != null) {
+                                            val bmiStatus = when {
+                                                latest.bmi >= 30 -> "อ้วนอันตราย" to Color(0xFFB71C1C)
+                                                latest.bmi >= 25 -> "อ้วน" to Color(0xFFD32F2F)
+                                                latest.bmi >= 23 -> "ท้วม" to Color(0xFFF57C00)
+                                                latest.bmi >= 18.5 -> "ปกติ" to Color(0xFF2E7D32)
+                                                else -> "ผอม" to Color(0xFF0288D1)
+                                            }
+                                            Column(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                                                    .border(1.dp, bmiStatus.second.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                                    .padding(10.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Text("BMIล่าสุด", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text("%.1f".format(latest.bmi), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = bmiStatus.second.copy(alpha = 0.1f)
+                                                ) {
+                                                    Text(
+                                                        bmiStatus.first,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = bmiStatus.second,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // 2. BP Card
+                                        if (latest.systolic != null && latest.diastolic != null) {
+                                            val bpStatus = when {
+                                                latest.systolic >= 160 || latest.diastolic >= 100 -> "สูงรุนแรง" to Color(0xFFB71C1C)
+                                                latest.systolic >= 140 || latest.diastolic >= 90 -> "สูง" to Color(0xFFD32F2F)
+                                                latest.systolic >= 130 || latest.diastolic >= 85 -> "ค่อนข้างสูง" to Color(0xFFF57C00)
+                                                else -> "ปกติ" to Color(0xFF2E7D32)
+                                            }
+                                            Column(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                                                    .border(1.dp, bpStatus.second.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                                    .padding(10.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Text("ความดัน (BP)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text("${latest.systolic}/${latest.diastolic}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = bpStatus.second.copy(alpha = 0.1f)
+                                                ) {
+                                                    Text(
+                                                        bpStatus.first,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = bpStatus.second,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if (chartModel != null) {
                         item {
                             Card(
-                                modifier = Modifier.fillMaxWidth().height(200.dp).padding(bottom = 16.dp),
+                                modifier = Modifier.fillMaxWidth().height(200.dp).padding(bottom = 8.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                 shape = RoundedCornerShape(16.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text("แนวโน้มน้ำหนัก (กก.)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    Text("แนวโน้มน้ำหนักล่าสุด (กก.)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Chart(
                                         chart = lineChart(),
@@ -166,10 +290,20 @@ fun HealthScreeningScreen(
                         item {
                             val latest = screenings.firstOrNull()
                             if (latest != null) {
+                                // Futuristic Premium Gradient AI Card
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                        .shadow(4.dp, RoundedCornerShape(16.dp)),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                     shape = RoundedCornerShape(16.dp),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        androidx.compose.ui.graphics.Brush.linearGradient(
+                                            colors = listOf(com.example.ui.theme.EmeraldPrimary, com.example.ui.theme.MintAccent)
+                                        )
+                                    ),
                                     onClick = {
                                         person?.let { p ->
                                             val age = if (p.birthDate != null) {
@@ -191,15 +325,43 @@ fun HealthScreeningScreen(
                                     }
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(16.dp),
+                                        modifier = Modifier
+                                            .background(
+                                                androidx.compose.ui.graphics.Brush.linearGradient(
+                                                    colors = listOf(
+                                                        com.example.ui.theme.EmeraldPrimary.copy(alpha = 0.08f),
+                                                        com.example.ui.theme.MintAccent.copy(alpha = 0.04f)
+                                                    )
+                                                )
+                                            )
+                                            .padding(16.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = com.example.ui.theme.EmeraldPrimary,
+                                            modifier = Modifier.size(28.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
-                                            Text(stringResource(R.string.ai_get_advice), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                            Text("วิเคราะห์แนวโน้มสุขภาพด้วย Gemini Pro", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = stringResource(R.string.ai_get_advice),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = com.example.ui.theme.EmeraldPrimary
+                                            )
+                                            Text(
+                                                text = "วิเคราะห์แนวโน้มสุขภาพและคำแนะนำด้วย AI อัจฉริยะ",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
+                                        Icon(
+                                            imageVector = Icons.Filled.KeyboardArrowRight,
+                                            contentDescription = null,
+                                            tint = com.example.ui.theme.EmeraldPrimary.copy(alpha = 0.6f)
+                                        )
                                     }
                                 }
                             }
@@ -232,7 +394,7 @@ fun HealthScreeningScreen(
                             diastolic = diastolic,
                             bloodSugar = bloodSugar,
                             note = note,
-                            vhvName = "อสม. ในพื้นที่" // Placeholder or from profile
+                            vhvName = "อสม. ในพื้นที่"
                         )
                     )
                     showAddDialog = false
@@ -261,9 +423,9 @@ fun AiAdviceDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = com.example.ui.theme.EmeraldPrimary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.ai_advisor_title))
+                Text(stringResource(R.string.ai_advisor_title), fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -274,9 +436,9 @@ fun AiAdviceDialog(
                             modifier = Modifier.fillMaxWidth().padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            CircularProgressIndicator()
+                            CircularProgressIndicator(color = com.example.ui.theme.EmeraldPrimary)
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(stringResource(R.string.ai_loading))
+                            Text(stringResource(R.string.ai_loading), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                     is GeminiUiState.Success -> {
@@ -297,7 +459,7 @@ fun AiAdviceDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("ตกลง")
+                Text("ตกลง", fontWeight = FontWeight.Bold, color = com.example.ui.theme.EmeraldPrimary)
             }
         }
     )
@@ -311,6 +473,7 @@ fun ScreeningCard(screening: HealthScreening, onDelete: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -319,14 +482,28 @@ fun ScreeningCard(screening: HealthScreening, onDelete: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = dateFormat.format(Date(screening.timestamp)),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-                IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "ลบ", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(com.example.ui.theme.EmeraldPrimary)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = dateFormat.format(Date(screening.timestamp)),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "ลบ",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
             
@@ -360,7 +537,7 @@ fun ScreeningCard(screening: HealthScreening, onDelete: () -> Unit) {
                         else -> "ผอม" to Color(0xFF0288D1)
                     }
                     ScreeningItem(
-                        label = "BMI",
+                        label = "ดัชนีมวลกาย (BMI)",
                         value = "%.1f".format(screening.bmi),
                         status = bmiStatus.first,
                         statusColor = bmiStatus.second,
@@ -378,19 +555,27 @@ fun ScreeningCard(screening: HealthScreening, onDelete: () -> Unit) {
                 }
                 ScreeningItem(
                     label = stringResource(R.string.sugar_label),
-                    value = screening.bloodSugar.toString(),
+                    value = "${screening.bloodSugar} mg/dL",
                     status = sugarStatus.first,
-                    statusColor = sugarStatus.second
+                    statusColor = sugarStatus.second,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
             
             if (!screening.note.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.note_label) + ": ${screening.note}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        text = stringResource(R.string.note_label) + ": ${screening.note}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
             }
         }
     }
@@ -404,28 +589,46 @@ fun ScreeningItem(
     statusColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Row(
         modifier = modifier
-            .background(statusColor.copy(alpha = 0.05f), androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-            .padding(8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, statusColor.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+            .height(IntrinsicSize.Min)
     ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-        Surface(
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(100.dp),
-            color = statusColor.copy(alpha = 0.1f)
+        // Solid left accent bar
+        Box(
+            modifier = Modifier
+                .width(5.dp)
+                .fillMaxHeight()
+                .background(statusColor)
+        )
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .weight(1f)
         ) {
-            Text(
-                status,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                style = MaterialTheme.typography.labelSmall,
-                color = statusColor,
-                fontWeight = FontWeight.Bold
-            )
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(modifier = Modifier.height(4.dp))
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = statusColor.copy(alpha = 0.1f)
+            ) {
+                Text(
+                    status,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = statusColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HealthScreeningFormDialog(
     onDismiss: () -> Unit,
@@ -438,61 +641,209 @@ fun HealthScreeningFormDialog(
     var bloodSugar by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
 
+    // Dynamic state calculations
+    val calculatedBmi: Double? = remember(weight, height) {
+        val w = weight.toDoubleOrNull()
+        val h = height.toDoubleOrNull()
+        if (w != null && h != null && h > 0) {
+            val hMeter = h / 100.0
+            w / (hMeter * hMeter)
+        } else null
+    }
+
+    val bmiCategory = remember(calculatedBmi) {
+        calculatedBmi?.let { bmi ->
+            when {
+                bmi >= 30 -> "อ้วนอันตราย (ระดับ 3)" to Color(0xFFB71C1C)
+                bmi >= 25 -> "อ้วน (ระดับ 2)" to Color(0xFFD32F2F)
+                bmi >= 23 -> "น้ำหนักเกิน (ท้วม)" to Color(0xFFF57C00)
+                bmi >= 18.5 -> "น้ำหนักปกติ" to Color(0xFF2E7D32)
+                else -> "น้ำหนักน้อยกว่าเกณฑ์" to Color(0xFF0288D1)
+            }
+        }
+    }
+
+    val calculatedBpCategory = remember(systolic, diastolic) {
+        val sys = systolic.toIntOrNull()
+        val dia = diastolic.toIntOrNull()
+        if (sys != null && dia != null) {
+            when {
+                sys >= 160 || dia >= 100 -> "ความดันโลหิตสูงรุนแรง (ระดับ 2)" to Color(0xFFB71C1C)
+                sys >= 140 || dia >= 90 -> "ความดันโลหิตสูง (ระดับ 1)" to Color(0xFFD32F2F)
+                sys >= 130 || dia >= 85 -> "ความดันโลหิตค่อนข้างสูง" to Color(0xFFF57C00)
+                else -> "ความดันโลหิตปกติ" to Color(0xFF2E7D32)
+            }
+        } else null
+    }
+
+    val calculatedSugarCategory = remember(bloodSugar) {
+        val sugar = bloodSugar.toIntOrNull()
+        if (sugar != null) {
+            when {
+                sugar >= 126 -> "เสี่ยงโรคเบาหวาน" to Color(0xFFD32F2F)
+                sugar >= 100 -> "ระดับน้ำตาลเริ่มสูง" to Color(0xFFF57C00)
+                else -> "ระดับน้ำตาลปกติ" to Color(0xFF2E7D32)
+            }
+        } else null
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.add_screening), fontWeight = FontWeight.Bold) },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Section 1: Physical Parameters
+                Text("สัดส่วนร่างกาย", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = com.example.ui.theme.EmeraldPrimary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = weight,
                         onValueChange = { weight = it },
                         label = { Text("น้ำหนัก (กก.)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
                     )
                     OutlinedTextField(
                         value = height,
                         onValueChange = { height = it },
                         label = { Text("ส่วนสูง (ซม.)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
                     )
                 }
+
+                // Dynamic BMI Display
+                calculatedBmi?.let { bmi ->
+                    bmiCategory?.let { category ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = category.second.copy(alpha = 0.05f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, category.second.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("ดัชนีมวลกาย (BMI) คำนวณได้:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("%.1f".format(bmi), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = category.second)
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = category.second.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        category.first,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = category.second,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 
-                Text("ความดันโลหิต", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                // Section 2: Blood Pressure
+                Text("สัญญาณชีพ", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = com.example.ui.theme.EmeraldPrimary)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = systolic,
                         onValueChange = { systolic = it },
-                        label = { Text("ตัวบน (SYS)") },
+                        label = { Text("ค่าบน (SYS) mmHg") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
                     )
                     OutlinedTextField(
                         value = diastolic,
                         onValueChange = { diastolic = it },
-                        label = { Text("ตัวล่าง (DIA)") },
+                        label = { Text("ค่าล่าง (DIA) mmHg") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
                     )
                 }
+
+                // Dynamic Blood Pressure Category
+                calculatedBpCategory?.let { category ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = category.second.copy(alpha = 0.05f)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, category.second.copy(alpha = 0.2f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("ระดับความดันโลหิต:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = category.second.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    category.first,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = category.second,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
                 
+                // Section 3: Blood Sugar
                 OutlinedTextField(
                     value = bloodSugar,
                     onValueChange = { bloodSugar = it },
                     label = { Text("ระดับน้ำตาลในเลือด (mg/dL)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
+
+                // Dynamic Blood Sugar Category
+                calculatedSugarCategory?.let { category ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = category.second.copy(alpha = 0.05f)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, category.second.copy(alpha = 0.2f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("ระดับน้ำตาลในเลือด:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = category.second.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    category.first,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = category.second,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
                 
+                // Note field
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("หมายเหตุ / คำแนะนำ") },
+                    label = { Text("บันทึกหมายเหตุ / คำแนะนำ อสม.") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
@@ -512,7 +863,7 @@ fun HealthScreeningFormDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = com.example.ui.theme.EmeraldPrimary)
             ) {
-                Text("บันทึก")
+                Text("บันทึกข้อมูล", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
