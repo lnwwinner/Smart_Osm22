@@ -70,9 +70,9 @@ data class VillageAssignment(
 
     private var cachedVillageNo: String = ""
     private var cachedVillageName: String = ""
-    private var cachedSubdistrict: String = "ต.ป่าขะ"
-    private var cachedDistrict: String = "อ.บ้านนา"
-    private var cachedProvince: String = "จ.นครนายก"
+    private var cachedSubdistrict: String = ""
+    private var cachedDistrict: String = ""
+    private var cachedProvince: String = ""
     private var cachedPhoneNumber: String? = null
     private var cachedRoleTitle: String = "อสม. ประจำหมู่บ้าน"
     private var cachedFullName: String? = null
@@ -100,14 +100,14 @@ data class VillageAssignment(
             val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
             cachedVillageNo = prefs.getString("surveyor_village_no", "") ?: ""
             cachedVillageName = prefs.getString("surveyor_village_name", "") ?: ""
-            cachedSubdistrict = prefs.getString("surveyor_subdistrict", "ต.ป่าขะ") ?: "ต.ป่าขะ"
-            cachedDistrict = prefs.getString("surveyor_district", "อ.บ้านนา") ?: "อ.บ้านนา"
-            cachedProvince = prefs.getString("surveyor_province", "จ.นครนายก") ?: "จ.นครนายก"
+            cachedSubdistrict = prefs.getString("surveyor_subdistrict", "") ?: ""
+            cachedDistrict = prefs.getString("surveyor_district", "") ?: ""
+            cachedProvince = prefs.getString("surveyor_province", "") ?: ""
             cachedPhoneNumber = prefs.getString("surveyor_phone", null)
             cachedRoleTitle = prefs.getString("surveyor_role", "อสม. ประจำหมู่บ้าน") ?: "อสม. ประจำหมู่บ้าน"
             cachedVhvCardId = prefs.getString("surveyor_vhv_card_id", null)
             cachedCitizenId = prefs.getString("surveyor_citizen_id", null)
-            cachedHealthCenter = prefs.getString("surveyor_health_center", "รพ.สต.ป่าขะ")
+            cachedHealthCenter = prefs.getString("surveyor_health_center", "")
             cachedVhvCardPhotoUrl = prefs.getString("surveyor_vhv_card_photo", null)
 
             val localUid = prefs.getString("local_user_uid", null) ?: "vhv_local_user_1"
