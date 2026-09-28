@@ -16,3 +16,9 @@
 local.properties
 .env
 debug.keystore
+
+# Real population/PII exports must never be committed.
+app/PopulationData_*.xlsx
+app/PopulationData_*.xls
+private-data/
+app/private-data/
