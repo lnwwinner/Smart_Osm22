@@ -63,6 +63,9 @@ import org.osmdroid.util.MapTileIndex
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
+import com.example.data.api.NominatimService
+import com.example.data.api.NominatimResponse
+
 
 enum class MapLayerType(val title: String, val subtitle: String) {
     STANDARD_2D("แผนที่มาตรฐาน (2D)", "เส้นทาง คลอง และชื่อสถานที่คมชัด"),
@@ -181,6 +184,12 @@ fun MapScreen(
     var searchQuery by remember { mutableStateOf("") }
     var activeFilter by remember { mutableStateOf(PopulationFilter.ALL) }
     var showStatsPanel by remember { mutableStateOf(false) }
+
+    // Geocoding states
+    val nominatimService = remember { NominatimService.create() }
+    var locationSearchResults by remember { mutableStateOf<List<NominatimResponse>>(emptyList()) }
+    var isSearchingLocation by remember { mutableStateOf(false) }
+
 
     // Map Layer and House Marker Style State
     var selectedMapLayer by remember { mutableStateOf(MapLayerType.STANDARD_2D) }
@@ -843,12 +852,99 @@ fun MapScreen(
                             )
                         )
                         if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
+                            if (isSearchingLocation) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = EmeraldPrimary)
+                            } else {
+                                IconButton(onClick = {
+                                    coroutineScope.launch {
+                                        isSearchingLocation = true
+                                        try {
+                                            val results = nominatimService.search(searchQuery)
+                                            locationSearchResults = results
+                                            if (results.isEmpty()) {
+                                                Toast.makeText(context, "ไม่พบสถานที่ที่ระบุ", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "การเชื่อมต่อล้มเหลว หรือ ไม่พบสถานที่", Toast.LENGTH_SHORT).show()
+                                        } finally {
+                                            isSearchingLocation = false
+                                        }
+                                    }
+                                }) {
+                                    Icon(Icons.Filled.TravelExplore, contentDescription = "ค้นหาสถานที่ทั่วโลก", tint = EmeraldPrimary)
+                                }
+                            }
+                            IconButton(onClick = { 
+                                searchQuery = ""
+                                locationSearchResults = emptyList()
+                            }) {
                                 Icon(Icons.Filled.Clear, contentDescription = "ล้างค้นหา", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                 }
+
+                // Global Search Results List
+                AnimatedVisibility(
+                    visible = locationSearchResults.isNotEmpty(),
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 250.dp)
+                            .shadow(8.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.3f))
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("ผลการค้นหาสถานที่บนแผนที่", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = EmeraldPrimary)
+                                IconButton(onClick = { locationSearchResults = emptyList() }, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Filled.Close, contentDescription = "ปิด", modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                            LazyColumn {
+                                items(locationSearchResults) { result ->
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                val lat = result.lat.toDoubleOrNull()
+                                                val lon = result.lon.toDoubleOrNull()
+                                                if (lat != null && lon != null) {
+                                                    val point = GeoPoint(lat, lon)
+                                                    mapViewRef?.controller?.animateTo(point)
+                                                    mapViewRef?.controller?.setZoom(17.0)
+                                                    locationSearchResults = emptyList()
+                                                    searchQuery = result.display_name
+                                                }
+                                            }
+                                            .padding(12.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Icon(Icons.Filled.LocationOn, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(18.dp))
+                                            Text(
+                                                text = result.display_name,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+
 
                 // Population Distribution Filter Chips
                 LazyRow(
