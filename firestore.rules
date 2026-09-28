@@ -4,7 +4,8 @@ service cloud.firestore {
     
     // Helper function to get current user's profile data
     function getUserProfile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
     
     // Helper function to check if the user is authenticated
@@ -16,7 +17,8 @@ service cloud.firestore {
     function hasVillageAccess(villageNo) {
       // SECURITY: villageNo must be verified. Here we rely on users collection
       // but in production, this should come from a read-only 'permissions' collection.
-      return isAuthenticated() && getUserProfile().villageNo == villageNo;
+      let profile = getUserProfile();
+      return isAuthenticated() && profile != null && profile.villageNo == villageNo;
     }
 
     // 1. Users collection: Only owner can read/write their own profile.

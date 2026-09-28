@@ -173,9 +173,18 @@ open class RoomFirestoreSyncHelper(
                 null
             }
 
+            if (activeVillageNo.isNullOrBlank()) {
+                val err = IllegalStateException("ไม่สามารถซิงค์ได้: ยังไม่ได้ระบุพื้นที่รับผิดชอบ (หมู่บ้าน) กรุณาตั้งค่าโปรไฟล์ก่อน")
+                _syncState.value = SyncState.Error(err.message ?: "", err)
+                return@withContext Result.failure(err)
+            }
+
             // Fetch tombstones to prevent re-uploading deleted records
+            // Must be filtered by villageNo to satisfy security rules
             val deletedUuids = try {
-                val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
+                val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES)
+                    .whereEqualTo("villageNo", activeVillageNo)
+                    .get().await()
                 tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
             } catch (e: Exception) {
                 Log.w(TAG, "Tombstone fetch note: ${e.message}")
@@ -183,7 +192,7 @@ open class RoomFirestoreSyncHelper(
             }
 
             val households = repository.getAllHouseholds()
-                .filter { !deletedUuids.contains(it.householdUuid) && (activeVillageNo == null || it.villageNo == activeVillageNo) }
+                .filter { !deletedUuids.contains(it.householdUuid) && it.villageNo == activeVillageNo }
             val persons = repository.getAllPersonsList()
                 .filter { !deletedUuids.contains(it.personUuid) }
 
@@ -474,9 +483,18 @@ open class RoomFirestoreSyncHelper(
                 null
             }
 
+            if (activeVillageNo.isNullOrBlank()) {
+                val err = IllegalStateException("ไม่สามารถซิงค์ได้: ยังไม่ได้ระบุพื้นที่รับผิดชอบ (หมู่บ้าน) กรุณาตั้งค่าโปรไฟล์ก่อน")
+                _syncState.value = SyncState.Error(err.message ?: "", err)
+                return@withContext Result.failure(err)
+            }
+
             // Fetch tombstones
+            // Must be filtered by villageNo to satisfy security rules
             val deletedUuids = try {
-                val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
+                val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES)
+                    .whereEqualTo("villageNo", activeVillageNo)
+                    .get().await()
                 tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
             } catch (e: Exception) {
                 Log.w(TAG, "Tombstone fetch in syncFirestoreToRoom note: ${e.message}")
@@ -485,29 +503,25 @@ open class RoomFirestoreSyncHelper(
 
             // Remove stale local Room records that have been deleted in Cloud
             val allLocalHouseholdsToDelete = repository.getAllHouseholds()
-                .filter { deletedUuids.contains(it.householdUuid) && (activeVillageNo == null || it.villageNo == activeVillageNo) }
+                .filter { deletedUuids.contains(it.householdUuid) && it.villageNo == activeVillageNo }
             for (h in allLocalHouseholdsToDelete) {
                 repository.deleteHousehold(h)
             }
             
             val localHouseholdMap = repository.getAllHouseholds().associateBy { it.id }
             val allLocalPersonsToDelete = repository.getAllPersonsList()
-                .filter { deletedUuids.contains(it.personUuid) && (activeVillageNo == null || (localHouseholdMap[it.householdId]?.villageNo == activeVillageNo)) }
+                .filter { deletedUuids.contains(it.personUuid) && (localHouseholdMap[it.householdId]?.villageNo == activeVillageNo) }
             for (p in allLocalPersonsToDelete) {
                 repository.delete(p)
             }
 
-            val householdDocs = if (activeVillageNo != null) {
-                firestore.collection(COLLECTION_HOUSEHOLDS).whereEqualTo("villageNo", activeVillageNo).get().await()
-            } else {
-                firestore.collection(COLLECTION_HOUSEHOLDS).get().await()
-            }
+            val householdDocs = firestore.collection(COLLECTION_HOUSEHOLDS)
+                .whereEqualTo("villageNo", activeVillageNo)
+                .get().await()
 
-            val personDocs = if (activeVillageNo != null) {
-                firestore.collection(COLLECTION_PERSONS).whereEqualTo("villageNo", activeVillageNo).get().await()
-            } else {
-                firestore.collection(COLLECTION_PERSONS).get().await()
-            }
+            val personDocs = firestore.collection(COLLECTION_PERSONS)
+                .whereEqualTo("villageNo", activeVillageNo)
+                .get().await()
 
             _syncState.value = SyncState.Syncing("กำลังนำเข้าข้อมูล เข้าสู่ Room...")
 
