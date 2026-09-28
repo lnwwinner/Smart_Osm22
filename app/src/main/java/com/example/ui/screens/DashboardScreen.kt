@@ -59,7 +59,8 @@ fun DashboardScreen(
     onNavigateToPlanOfWork: () -> Unit = {},
     onNavigateToHouseDetail: (Long) -> Unit = {},
     onNavigateToQrScan: () -> Unit = {},
-    onNavigateToScreening: (Long) -> Unit = {}
+    onNavigateToScreening: (Long) -> Unit = {},
+    onNavigateToMonthlyReport: () -> Unit = {}
 ) {
     val allPersons by viewModel.allPersons.collectAsStateWithLifecycle()
     val allHouseholdsWithPersons by viewModel.allHouseholdsWithPersons.collectAsStateWithLifecycle()
@@ -607,6 +608,30 @@ fun DashboardScreen(
                                 iconBgColor = if (isDark) Color(0xFF3B0764) else Color(0xFFF3E8FF),
                                 iconTintColor = if (isDark) Color(0xFFC084FC) else Color(0xFF7C3AED),
                                 onClick = onNavigateToInfo
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            QuickActionCard(
+                                modifier = Modifier.weight(1f),
+                                title = "รายงาน อสม. 1 & 2",
+                                subtitle = "สรุปผลงาน & พิมพ์ A4 PDF",
+                                icon = Icons.Filled.Assessment,
+                                iconBgColor = if (isDark) Color(0xFF1E3A8A) else Color(0xFFE0E7FF),
+                                iconTintColor = if (isDark) Color(0xFF818CF8) else Color(0xFF4338CA),
+                                onClick = onNavigateToMonthlyReport
+                            )
+                            QuickActionCard(
+                                modifier = Modifier.weight(1f),
+                                title = "แผนที่พิกัดบ้าน",
+                                subtitle = "GIS $gpsHouseholdsCount หลัง",
+                                icon = Icons.Filled.LocationOn,
+                                iconBgColor = if (isDark) Color(0xFF064E3B) else Color(0xFFD1FAE5),
+                                iconTintColor = if (isDark) Color(0xFF34D399) else Color(0xFF059669),
+                                onClick = onNavigateToMap
                             )
                         }
                     }

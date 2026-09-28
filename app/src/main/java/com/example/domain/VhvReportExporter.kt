@@ -752,6 +752,196 @@ object VhvReportExporter {
     }
 
     /**
+     * Generates a fully printable A4 HTML Document for Official OSM 2 Report (Elderly & Vulnerable Care).
+     */
+    fun generateOsm2Html(
+        villageFilter: String,
+        households: List<Household>,
+        persons: List<Person>,
+        screenings: List<HealthScreening>
+    ): String {
+        val villageLabel = if (villageFilter == "ALL") "ทุกหมู่บ้าน (13 หมู่บ้าน)" else "หมู่ที่ $villageFilter"
+        val filteredHouseholds = if (villageFilter == "ALL") households else households.filter { it.villageNo == villageFilter }
+        val householdMap = filteredHouseholds.associateBy { it.id }
+        val now = LocalDate.now()
+
+        val elderlyPersons = persons.filter { p ->
+            p.householdId in householdMap.keys &&
+                    p.personStatus == PersonStatus.ALIVE &&
+                    p.birthDate != null &&
+                    Period.between(p.birthDate, now).years >= 60
+        }.sortedByDescending { Period.between(it.birthDate, now).years }
+
+        val latestScreeningMap = screenings.groupBy { it.personId }.mapValues { it.value.maxByOrNull { s -> s.timestamp } }
+
+        var countEarly = 0
+        var countMid = 0
+        var countLate = 0
+        var countHighRisk = 0
+        var countScreened = 0
+
+        val rows = elderlyPersons.mapIndexed { idx, p ->
+            val h = householdMap[p.householdId]
+            val age = Period.between(p.birthDate, now).years
+            val ageBracket = when {
+                age >= 80 -> { countLate++; "วัยปลาย (80+)" }
+                age >= 70 -> { countMid++; "วัยกลาง (70-79)" }
+                else -> { countEarly++; "วัยต้น (60-69)" }
+            }
+
+            val sc = latestScreeningMap[p.id]
+            if (sc != null) countScreened++
+
+            val sys = sc?.systolic
+            val dia = sc?.diastolic
+            val dtx = sc?.bloodSugar
+
+            val bpStr = if (sys != null && dia != null) "$sys/$dia" else "-"
+            val dtxStr = dtx?.toString() ?: "-"
+
+            val isHighBp = sys != null && dia != null && (sys >= 140 || dia >= 90)
+            val isHighDtx = dtx != null && dtx >= 126
+
+            val riskBadge = when {
+                isHighBp && isHighDtx -> {
+                    countHighRisk++
+                    "<span class='badge badge-red'>เสี่ยงสูง BP&DTX</span>"
+                }
+                isHighBp -> {
+                    countHighRisk++
+                    "<span class='badge badge-red'>เสี่ยงความดัน</span>"
+                }
+                isHighDtx -> {
+                    countHighRisk++
+                    "<span class='badge badge-red'>เสี่ยงเบาหวาน</span>"
+                }
+                sc != null -> "<span class='badge badge-green'>ปกติ</span>"
+                else -> "<span class='badge badge-yellow'>รอคัดกรอง</span>"
+            }
+
+            val carePlan = when {
+                age >= 80 || isHighBp || isHighDtx -> "เยี่ยมบ้านสัปดาห์ละ 1-2 ครั้ง"
+                else -> "เยี่ยมบ้านเดือนละ 1 ครั้ง"
+            }
+
+            """
+                <tr>
+                    <td class="center">${idx + 1}</td>
+                    <td class="center">${h?.houseNo ?: "-"}</td>
+                    <td class="center">${h?.villageNo ?: "-"}</td>
+                    <td><b>${p.fullName}</b></td>
+                    <td class="center"><b>$age</b></td>
+                    <td class="center">$ageBracket</td>
+                    <td>${p.healthInsurance ?: "บัตรทอง"}</td>
+                    <td class="center">${p.phoneNumber ?: "-"}</td>
+                    <td class="center">$bpStr</td>
+                    <td class="center">$dtxStr</td>
+                    <td class="center">$riskBadge</td>
+                    <td>$carePlan</td>
+                </tr>
+            """.trimIndent()
+        }.joinToString("\n")
+
+        return """
+            <!DOCTYPE html>
+            <html lang="th">
+            <head>
+                <meta charset="UTF-8">
+                <title>รายงานผู้สูงอายุและกลุ่มเปราะบาง อสม. 2</title>
+                <style>
+                    @page { size: A4 landscape; margin: 10mm 10mm; }
+                    body { font-family: 'Sarabun', 'Prompt', -apple-system, sans-serif; color: #1e293b; line-height: 1.35; padding: 10px; }
+                    .header-box { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin-bottom: 12px; }
+                    .title { font-size: 16pt; font-weight: bold; color: #1e40af; margin: 0; }
+                    .subtitle { font-size: 10.5pt; color: #475569; margin: 2px 0; }
+                    .meta { font-size: 9pt; color: #64748b; }
+                    .stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+                    .stat-card { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; text-align: center; }
+                    .stat-card .num { font-size: 14pt; font-weight: bold; color: #1d4ed8; }
+                    .stat-card .lbl { font-size: 8.5pt; color: #64748b; }
+                    table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+                    th, td { border: 1px solid #cbd5e1; padding: 5px 6px; }
+                    th { background-color: #eff6ff; font-weight: bold; text-align: center; color: #1e3a8a; }
+                    .center { text-align: center; }
+                    .badge { display: inline-block; padding: 2px 5px; border-radius: 4px; font-size: 8pt; font-weight: bold; }
+                    .badge-green { background-color: #d1fae5; color: #065f46; }
+                    .badge-yellow { background-color: #fef3c7; color: #92400e; }
+                    .badge-red { background-color: #fee2e2; color: #991b1b; }
+                    .signature-box { margin-top: 24px; display: flex; justify-content: space-between; page-break-inside: avoid; }
+                    .sign-col { text-align: center; width: 45%; }
+                    .sign-line { border-bottom: 1px dotted #64748b; margin: 30px 20px 6px 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="header-box">
+                    <h1 class="title">แบบรายงานผู้สูงอายุและกลุ่มเปราะบาง (รายงาน อสม. 2)</h1>
+                    <p class="subtitle">ระบบสารสนเทศสุขภาพชุมชน Smart OSM • ตำบลป่าขะ อำเภอบ้านนา จังหวัดนครนายก</p>
+                    <p class="meta">พื้นที่: <b>$villageLabel</b> | พิมพ์เมื่อ: ${dateTimeFormat.format(Date())}</p>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="num">${elderlyPersons.size}</div>
+                        <div class="lbl">ผู้สูงอายุทั้งหมด (คน)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="num">$countEarly</div>
+                        <div class="lbl">วัยต้น (60-69 ปี)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="num">$countMid</div>
+                        <div class="lbl">วัยกลาง (70-79 ปี)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="num">$countLate</div>
+                        <div class="lbl">วัยปลาย (80+ ปี)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="num" style="color: #dc2626;">$countHighRisk</div>
+                        <div class="lbl">กลุ่มเสี่ยงสูง NCDs</div>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="3%">ที่</th>
+                            <th width="7%">บ้านเลขที่</th>
+                            <th width="5%">หมู่ที่</th>
+                            <th width="18%">ชื่อ - นามสกุล</th>
+                            <th width="5%">อายุ</th>
+                            <th width="10%">ช่วงวัยสูงอายุ</th>
+                            <th width="10%">สิทธิการรักษา</th>
+                            <th width="9%">เบอร์โทร</th>
+                            <th width="8%">ความดัน</th>
+                            <th width="7%">น้ำตาล</th>
+                            <th width="9%">ระดับความเสี่ยง</th>
+                            <th width="12%">การดูแลโดย อสม.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        $rows
+                    </tbody>
+                </table>
+
+                <div class="signature-box">
+                    <div class="sign-col">
+                        <div class="sign-line"></div>
+                        <p style="margin: 0; font-size: 9.5pt;">ลงชื่อ ..............................................................</p>
+                        <p style="margin: 4px 0; font-size: 8.5pt; color: #64748b;">( ตัวแทน อสม. ผู้จัดทำรายงาน )</p>
+                    </div>
+                    <div class="sign-col">
+                        <div class="sign-line"></div>
+                        <p style="margin: 0; font-size: 9.5pt;">ลงชื่อ ..............................................................</p>
+                        <p style="margin: 4px 0; font-size: 8.5pt; color: #64748b;">( เจ้าหน้าที่สาธารณสุข รพ.สต. ผู้รับรายงาน )</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        """.trimIndent()
+    }
+
+    /**
      * Generates a fully printable A4 HTML Document for Family Health Folder (แฟ้มประวัติสุขภาพประจำบ้าน).
      */
     fun generateFamilyFolderHtml(

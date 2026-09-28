@@ -83,7 +83,8 @@ data class PlanItem(
 fun PlanOfWorkScreen(
     viewModel: PersonViewModel,
     onBack: () -> Unit = {},
-    onNavigateToHouseDetail: (Long) -> Unit = {}
+    onNavigateToHouseDetail: (Long) -> Unit = {},
+    onNavigateToMonthlyReport: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
@@ -152,6 +153,12 @@ fun PlanOfWorkScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = onNavigateToMonthlyReport,
+                        modifier = Modifier.testTag("btn_plan_monthly_report")
+                    ) {
+                        Icon(Icons.Filled.Assessment, contentDescription = "รายงานผลการปฏิบัติงาน อสม. 1", tint = EmeraldPrimary)
+                    }
                     IconButton(
                         onClick = { showQuickTemplateDialog = true },
                         modifier = Modifier.testTag("btn_quick_template")

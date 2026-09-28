@@ -57,7 +57,8 @@ fun DeveloperInfoScreen(
     onNavigateToLogin: () -> Unit = {},
     onNavigateToUserProfile: () -> Unit = {},
     onNavigateToVhvRegistration: () -> Unit = {},
-    onNavigateToOsmRp00002: () -> Unit = {}
+    onNavigateToOsmRp00002: () -> Unit = {},
+    onNavigateToMonthlyReport: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? android.app.Activity
@@ -256,6 +257,70 @@ fun DeveloperInfoScreen(
                         }
                     }
                     Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White)
+                }
+            }
+
+            // VHV Monthly Performance Report Card (รายงาน อสม. 1 & 2)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNavigateToMonthlyReport)
+                    .shadow(4.dp, RoundedCornerShape(22.dp), spotColor = CardShadowTint),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(EmeraldPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Assessment, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+                        }
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "รายงานการปฏิบัติงาน อสม.",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = EmeraldPrimary
+                                ) {
+                                    Text(
+                                        "อสม. 1 & 2",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "สรุปผลงานรายเดือน, ผู้สูงอายุ & พิมพ์ A4 PDF / Excel",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                            )
+                        }
+                    }
+                    Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = EmeraldPrimary)
                 }
             }
 

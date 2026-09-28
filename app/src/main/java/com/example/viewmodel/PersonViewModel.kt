@@ -180,6 +180,14 @@ class PersonViewModel(
         initialValue = emptyList()
     )
 
+    val allHouseholds: StateFlow<List<Household>> = repository.allHouseholdsWithPersons
+        .map { list -> list.map { it.household } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val totalPersonsCount: StateFlow<Int> = repository.totalPersonsCount.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

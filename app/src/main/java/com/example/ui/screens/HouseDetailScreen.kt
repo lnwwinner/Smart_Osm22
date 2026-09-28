@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -53,6 +54,8 @@ fun HouseDetailScreen(
     onScreeningClick: (Long) -> Unit = {}
 ) {
     val householdWithPersons by viewModel.getHouseholdWithPersonsById(householdId).collectAsStateWithLifecycle(initialValue = null)
+    val allScreenings by viewModel.allScreenings.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
     
     var personToDelete by remember { mutableStateOf<Person?>(null) }
     var showDeleteHouseholdDialog by remember { mutableStateOf(false) }
@@ -141,6 +144,17 @@ fun HouseDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        val activity = context as? android.app.Activity
+                        val house = householdWithPersons?.household
+                        val members = householdWithPersons?.persons ?: emptyList()
+                        if (activity != null && house != null) {
+                            val html = com.example.domain.VhvReportExporter.generateFamilyFolderHtml(house, members, allScreenings)
+                            com.example.domain.VhvReportExporter.printHtmlDocument(activity, html, "แฟ้มครอบครัว_บ้าน_${house.houseNo}")
+                        }
+                    }) {
+                        Icon(Icons.Filled.Print, contentDescription = "พิมพ์แฟ้มครอบครัว A4", tint = Color.White)
+                    }
                     IconButton(onClick = { showDeleteHouseholdDialog = true }) {
                         Icon(Icons.Filled.Delete, contentDescription = "ลบบ้าน", tint = Color.White)
                     }

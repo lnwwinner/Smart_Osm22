@@ -207,6 +207,9 @@ fun AppNavigation(
                     },
                     onNavigateToScreening = { personId ->
                         navController.navigate("health_screening/$personId")
+                    },
+                    onNavigateToMonthlyReport = {
+                        navController.navigate("vhv_monthly_report")
                     }
                 )
             }
@@ -257,7 +260,8 @@ fun AppNavigation(
                     onNavigateToLogin = { navController.navigate("login") },
                     onNavigateToUserProfile = { navController.navigate("user_profile") },
                     onNavigateToVhvRegistration = { navController.navigate("vhv_registration") },
-                    onNavigateToOsmRp00002 = { navController.navigate("osmrp_directory") }
+                    onNavigateToOsmRp00002 = { navController.navigate("osmrp_directory") },
+                    onNavigateToMonthlyReport = { navController.navigate("vhv_monthly_report") }
                 )
             }
             composable("user_profile") {
@@ -321,6 +325,22 @@ fun AppNavigation(
                     onBack = { navController.popBackStack() },
                     onNavigateToHouseDetail = { householdId ->
                         navController.navigate("house_detail/$householdId")
+                    },
+                    onNavigateToMonthlyReport = {
+                        navController.navigate("vhv_monthly_report")
+                    }
+                )
+            }
+            composable("vhv_monthly_report") {
+                VhvMonthlyReportScreen(
+                    viewModel = viewModel,
+                    authViewModel = authViewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToHouseDetail = { householdId ->
+                        navController.navigate("house_detail/$householdId")
+                    },
+                    onNavigateToScreening = { personId ->
+                        navController.navigate("health_screening/$personId")
                     }
                 )
             }
