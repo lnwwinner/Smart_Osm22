@@ -1,5 +1,16 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.ChildCare
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Elderly
+import com.example.data.VhvAgeGroup
+import com.example.data.PersonStatus
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
@@ -18,9 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -121,11 +130,133 @@ fun HealthScreeningScreen(
             }
         }
     ) { padding ->
+        val context = LocalContext.current
+        val personAge = remember(person) {
+            person?.let { viewModel.calculateAge(it.birthDate, it.personStatus) }
+        }
+        val personAgeGroup = remember(personAge) {
+            VhvAgeGroup.fromAge(personAge)
+        }
+
+        val (ageColor, ageBg) = when (personAgeGroup) {
+            VhvAgeGroup.EARLY_CHILD -> Color(0xFFD97706) to Color(0xFFFEF3C7)
+            VhvAgeGroup.SCHOOL_AGE -> Color(0xFF0284C7) to Color(0xFFE0F2FE)
+            VhvAgeGroup.TEENAGER -> Color(0xFF7C3AED) to Color(0xFFEDE9FE)
+            VhvAgeGroup.WORKING_AGE -> Color(0xFF0D9488) to Color(0xFFCCFBF1)
+            VhvAgeGroup.ELDERLY -> Color(0xFFE11D48) to Color(0xFFFFE4E6)
+            VhvAgeGroup.UNKNOWN -> Color(0xFF64748B) to Color(0xFFF1F5F9)
+        }
+
+        val ageIcon = when (personAgeGroup) {
+            VhvAgeGroup.EARLY_CHILD -> Icons.Filled.ChildCare
+            VhvAgeGroup.SCHOOL_AGE -> Icons.Filled.School
+            VhvAgeGroup.TEENAGER -> Icons.Filled.SelfImprovement
+            VhvAgeGroup.WORKING_AGE -> Icons.Filled.Work
+            VhvAgeGroup.ELDERLY -> Icons.Filled.Elderly
+            VhvAgeGroup.UNKNOWN -> Icons.Filled.Person
+        }
+
+        val ageMission = when (personAgeGroup) {
+            VhvAgeGroup.EARLY_CHILD -> "แนวทาง อสม. เด็ก 0-5 ปี: ติดตามวัคซีนครบตามเกณฑ์, ตรวจพัฒนาการสมวัย (DSPM) และบันทึกน้ำหนัก/ส่วนสูงเทียบกราฟ"
+            VhvAgeGroup.SCHOOL_AGE -> "แนวทาง อสม. เด็ก 6-12 ปี: ประเมินภาวะโภชนาการ BMI สมส่วน, ตรวจสุขภาพช่องปาก ฟันผุ และคัดกรองสายตา"
+            VhvAgeGroup.TEENAGER -> "แนวทาง อสม. วัยรุ่น 13-20 ปี: ส่งเสริมสุขภาวะทางเพศ ป้องกันพฤติกรรมเสี่ยง และดูแลสุขภาพจิตลดความเครียด"
+            VhvAgeGroup.WORKING_AGE -> "แนวทาง อสม. วัยทำงาน 21-59 ปี: คัดกรองความดันโลหิต (เป้าหมาย < 140/90) และตรวจน้ำตาลในเลือด (เป้าหมาย < 126 mg/dL) ป้องกัน NCDs"
+            VhvAgeGroup.ELDERLY -> "แนวทาง อสม. ผู้สูงอายุ 60+ ปี: คัดกรอง 9 ด้าน: ความดันโลหิต, ประเมินความเสี่ยงหกล้ม, สมองเสื่อม และประเมิน ADL (ติดสังคม/ติดบ้าน/ติดเตียง)"
+            VhvAgeGroup.UNKNOWN -> "แนวทาง อสม.: ตรวจคัดกรองสุขภาพพื้นฐาน และบันทึกข้อมูลดัชนีสุขภาพ"
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            // Person Profile & VHV Target Group Card
+            person?.let { p ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(ageBg),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(ageIcon, contentDescription = null, tint = ageColor, modifier = Modifier.size(24.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = p.fullName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = ageBg
+                                    ) {
+                                        Text(
+                                            text = personAgeGroup.value.substringBefore(" ("),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ageColor,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "อายุ ${personAge ?: "-"} ปี",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    p.nationalId?.let { nid ->
+                                        Text(
+                                            text = " | ปชช: $nid",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                            if (!p.phoneNumber.isNullOrBlank()) {
+                                IconButton(
+                                    onClick = {
+                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${p.phoneNumber}"))
+                                        context.startActivity(intent)
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Filled.Phone, contentDescription = "โทรติดต่อ", tint = com.example.ui.theme.EmeraldPrimary)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = ageBg.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = ageMission,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             if (screenings.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Column(

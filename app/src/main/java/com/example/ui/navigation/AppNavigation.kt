@@ -204,6 +204,9 @@ fun AppNavigation(
                     },
                     onNavigateToQrScan = {
                         navController.navigate("qr_scanner")
+                    },
+                    onNavigateToScreening = { personId ->
+                        navController.navigate("health_screening/$personId")
                     }
                 )
             }
@@ -221,6 +224,9 @@ fun AppNavigation(
                     viewModel = viewModel,
                     onPersonClick = { personId, householdId -> 
                         navController.navigate("person_form/$personId?householdId=$householdId") 
+                    },
+                    onScreeningClick = { personId ->
+                        navController.navigate("health_screening/$personId")
                     }
                 )
             }

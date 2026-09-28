@@ -212,7 +212,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = androidx.room.Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "smart_osm_database"
+                    "person_db"
                 )
                 .addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,

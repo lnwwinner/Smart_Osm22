@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +16,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -45,7 +50,8 @@ import java.time.LocalDate
 @Composable
 fun PersonListScreen(
     viewModel: PersonViewModel,
-    onPersonClick: (Long, Long) -> Unit // (personId, householdId)
+    onPersonClick: (Long, Long) -> Unit, // (personId, householdId)
+    onScreeningClick: (Long) -> Unit = {}
 ) {
     val allHouseholdsWithPersons by viewModel.allHouseholdsWithPersons.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
@@ -242,10 +248,15 @@ fun PersonListScreen(
                     }
                 } else {
                     items(filteredList, key = { it.first.id }) { (person, houseNo) ->
+                        val age = viewModel.calculateAge(person.birthDate, person.personStatus)
+                        val ageGroup = VhvAgeGroup.fromAge(age)
                         PersonListCard(
                             person = person,
                             houseNo = houseNo,
-                            onClick = { onPersonClick(person.id, person.householdId) }
+                            age = age,
+                            ageGroup = ageGroup,
+                            onClick = { onPersonClick(person.id, person.householdId) },
+                            onScreeningClick = { onScreeningClick(person.id) }
                         )
                     }
                 }
@@ -258,11 +269,22 @@ fun PersonListScreen(
 fun PersonListCard(
     person: Person,
     houseNo: String,
-    onClick: () -> Unit
+    age: Int?,
+    ageGroup: VhvAgeGroup,
+    onClick: () -> Unit,
+    onScreeningClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val isAlive = person.personStatus == PersonStatus.ALIVE
-    val currentYear = LocalDate.now().year
-    val age = if (isAlive && person.birthDate != null) currentYear - person.birthDate.year else null
+
+    val (ageGroupColor, ageGroupBg) = when (ageGroup) {
+        VhvAgeGroup.EARLY_CHILD -> Color(0xFFD97706) to Color(0xFFFEF3C7)
+        VhvAgeGroup.SCHOOL_AGE -> Color(0xFF0284C7) to Color(0xFFE0F2FE)
+        VhvAgeGroup.TEENAGER -> Color(0xFF7C3AED) to Color(0xFFEDE9FE)
+        VhvAgeGroup.WORKING_AGE -> Color(0xFF0D9488) to Color(0xFFCCFBF1)
+        VhvAgeGroup.ELDERLY -> Color(0xFFE11D48) to Color(0xFFFFE4E6)
+        VhvAgeGroup.UNKNOWN -> Color(0xFF64748B) to Color(0xFFF1F5F9)
+    }
 
     Card(
         onClick = onClick,
@@ -274,7 +296,7 @@ fun PersonListCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Avatar
@@ -282,50 +304,133 @@ fun PersonListCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(if (isAlive) MintAccent else MaterialTheme.colorScheme.surfaceVariant),
+                    .background(if (isAlive) ageGroupBg else MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Filled.Person,
                     contentDescription = null,
-                    tint = if (isAlive) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (isAlive) ageGroupColor else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             // Info
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = person.fullName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isAlive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = person.fullName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isAlive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // House No Badge
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(6.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.Home, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Filled.Home, contentDescription = null, modifier = Modifier.size(11.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text("บ้านเลขที่ $houseNo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
+                    // Age Group Badge
+                    if (isAlive && ageGroup != VhvAgeGroup.UNKNOWN) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = ageGroupBg
+                        ) {
+                            Text(
+                                text = ageGroup.value.substringBefore(" ("),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = ageGroupColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
                     if (isAlive && age != null) {
-                        Text("อายุ $age ปี", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("$age ปี", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else if (!isAlive) {
                         Text("เสียชีวิต", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                // Phone & Health Insurance Details
+                if (isAlive && (person.phoneNumber != null || person.healthInsurance != null)) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        person.healthInsurance?.let { hi ->
+                            Text(
+                                text = hi,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        if (person.phoneNumber != null && person.healthInsurance != null) {
+                            Text("•", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                        person.phoneNumber?.let { ph ->
+                            Text(
+                                text = ph,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Quick Actions
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Call button if phone exists
+                if (isAlive && !person.phoneNumber.isNullOrBlank()) {
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${person.phoneNumber}"))
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Phone,
+                            contentDescription = "โทรติดต่อ",
+                            tint = EmeraldPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Health Screening button
+                if (isAlive) {
+                    IconButton(
+                        onClick = onScreeningClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.MonitorHeart,
+                            contentDescription = "คัดกรองสุขภาพ",
+                            tint = GoldenAmber,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }

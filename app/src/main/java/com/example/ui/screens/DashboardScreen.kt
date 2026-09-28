@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.BorderStroke
@@ -55,7 +58,8 @@ fun DashboardScreen(
     onNavigateToInfo: () -> Unit = {},
     onNavigateToPlanOfWork: () -> Unit = {},
     onNavigateToHouseDetail: (Long) -> Unit = {},
-    onNavigateToQrScan: () -> Unit = {}
+    onNavigateToQrScan: () -> Unit = {},
+    onNavigateToScreening: (Long) -> Unit = {}
 ) {
     val allPersons by viewModel.allPersons.collectAsStateWithLifecycle()
     val allHouseholdsWithPersons by viewModel.allHouseholdsWithPersons.collectAsStateWithLifecycle()
@@ -70,6 +74,149 @@ fun DashboardScreen(
     var showNotificationDialog by remember { mutableStateOf(false) }
     var notificationTitle by remember { mutableStateOf("") }
     var notificationMessage by remember { mutableStateOf("") }
+
+    var selectedAgeGroupDetail by remember { mutableStateOf<VhvAgeGroup?>(null) }
+    val dashboardContext = LocalContext.current
+
+    if (selectedAgeGroupDetail != null) {
+        val targetGroup = selectedAgeGroupDetail!!
+        val personsInGroup = remember(allHouseholdsWithPersons, targetGroup) {
+            allHouseholdsWithPersons.flatMap { hw ->
+                hw.persons.filter { p ->
+                    if (p.personStatus != PersonStatus.ALIVE) return@filter false
+                    val age = viewModel.calculateAge(p.birthDate, p.personStatus)
+                    VhvAgeGroup.fromAge(age) == targetGroup
+                }.map { p -> p to hw.household.houseNo }
+            }.sortedBy { it.first.fullName }
+        }
+
+        val targetInfo = when (targetGroup) {
+            VhvAgeGroup.EARLY_CHILD -> Triple("เด็กปฐมวัย (0-5 ปี)", Icons.Filled.ChildCare, "ตรวจพัฒนาการสมวัย (DSPM) และบันทึกการรับวัคซีนพื้นฐาน")
+            VhvAgeGroup.SCHOOL_AGE -> Triple("เด็กวัยเรียน (6-12 ปี)", Icons.Filled.School, "ประเมินการเจริญเติบโต โภชนาการ และคัดกรองสายตา")
+            VhvAgeGroup.TEENAGER -> Triple("วัยรุ่น (13-20 ปี)", Icons.Filled.SelfImprovement, "ให้คำปรึกษาสุขภาวะทางเพศ ป้องกันยาเสพติด และดูแลสุขภาพจิต")
+            VhvAgeGroup.WORKING_AGE -> Triple("วัยทำงาน (21-59 ปี)", Icons.Filled.Work, "ตรวจคัดกรองความดันโลหิตและเบาหวาน (NCDs) ป้องกันโรคไม่ติดต่อ")
+            VhvAgeGroup.ELDERLY -> Triple("ผู้สูงอายุ (60 ปีขึ้นไป)", Icons.Filled.Elderly, "ประเมินความสามารถในการทำกิจวัตร (ADL) และคัดกรองภาวะสมองเสื่อม")
+            VhvAgeGroup.UNKNOWN -> Triple("ไม่ระบุช่วงอายุ", Icons.Filled.Person, "ประชากรที่ยังไม่มีข้อมูลวันเกิดในระบบ")
+        }
+
+        AlertDialog(
+            onDismissRequest = { selectedAgeGroupDetail = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(EmeraldPrimary.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(targetInfo.second, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text(targetInfo.first, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("${personsInGroup.size} คน ในพื้นที่รับผิดชอบ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    ) {
+                        Text(
+                            text = "ภารกิจ อสม.: ${targetInfo.third}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+
+                    if (personsInGroup.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("ไม่มีประชากรในกลุ่มวัยนี้ในพื้นที่", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(personsInGroup, key = { it.first.id }) { (person, houseNo) ->
+                                val age = viewModel.calculateAge(person.birthDate, person.personStatus)
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = person.fullName,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "บ้านเลขที่ $houseNo | อายุ ${age ?: "-"} ปี",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            if (!person.phoneNumber.isNullOrBlank()) {
+                                                Text(
+                                                    text = "โทร: ${person.phoneNumber}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = EmeraldPrimary,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
+                                        }
+
+                                        // Call button
+                                        if (!person.phoneNumber.isNullOrBlank()) {
+                                            IconButton(
+                                                onClick = {
+                                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${person.phoneNumber}"))
+                                                    dashboardContext.startActivity(intent)
+                                                },
+                                                modifier = Modifier.size(34.dp)
+                                            ) {
+                                                Icon(Icons.Filled.Phone, contentDescription = "โทร", tint = EmeraldPrimary, modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+
+                                        // Health Screening button
+                                        IconButton(
+                                            onClick = {
+                                                val pId = person.id
+                                                selectedAgeGroupDetail = null
+                                                onNavigateToScreening(pId)
+                                            },
+                                            modifier = Modifier.size(34.dp)
+                                        ) {
+                                            Icon(Icons.Filled.MonitorHeart, contentDescription = "คัดกรอง", tint = GoldenAmber, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedAgeGroupDetail = null }) {
+                    Text("ปิด")
+                }
+            }
+        )
+    }
 
     if (showNotificationDialog) {
         AlertDialog(
@@ -528,7 +675,8 @@ fun DashboardScreen(
                             badge = "เยี่ยมบ้าน",
                             icon = Icons.Filled.Elderly,
                             tint = Color(0xFFD97706),
-                            bg = if (isDark) Color(0xFF452205) else Color(0xFFFEF3C7)
+                            bg = if (isDark) Color(0xFF452205) else Color(0xFFFEF3C7),
+                            onClick = { selectedAgeGroupDetail = VhvAgeGroup.ELDERLY }
                         )
                         CitizenStatCard(
                             modifier = Modifier.weight(1f),
@@ -538,7 +686,8 @@ fun DashboardScreen(
                             badge = "วัคซีน",
                             icon = Icons.Filled.ChildCare,
                             tint = Color(0xFF0D9488),
-                            bg = if (isDark) Color(0xFF0F3836) else Color(0xFFCCFBF1)
+                            bg = if (isDark) Color(0xFF0F3836) else Color(0xFFCCFBF1),
+                            onClick = { selectedAgeGroupDetail = VhvAgeGroup.EARLY_CHILD }
                         )
                     }
                 }
@@ -778,6 +927,119 @@ fun DashboardScreen(
                                         ),
                                         modifier = Modifier.fillMaxWidth().height(220.dp)
                                     )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "ภารกิจคัดกรอง 5 กลุ่มวัย (อสม.)",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            "แตะดูรายชื่อ & คัดกรอง",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    val totalLiving = remember(allPersons) { allPersons.count { it.personStatus == PersonStatus.ALIVE } }
+
+                                    val vhvAgeCards = listOf(
+                                        Triple(VhvAgeGroup.EARLY_CHILD, "เด็กปฐมวัย (0-5 ปี)", Pair(Color(0xFFD97706), if (isDark) Color(0xFF451A03) else Color(0xFFFEF3C7))) to Pair(Icons.Filled.ChildCare, "ตรวจพัฒนาการสมวัย (DSPM) & วัคซีนพื้นฐาน"),
+                                        Triple(VhvAgeGroup.SCHOOL_AGE, "เด็กวัยเรียน (6-12 ปี)", Pair(Color(0xFF0284C7), if (isDark) Color(0xFF082F49) else Color(0xFFE0F2FE))) to Pair(Icons.Filled.School, "ภาวะโภชนาการ สมส่วน & คัดกรองสายตา/ฟัน"),
+                                        Triple(VhvAgeGroup.TEENAGER, "วัยรุ่น (13-20 ปี)", Pair(Color(0xFF7C3AED), if (isDark) Color(0xFF2E1065) else Color(0xFFEDE9FE))) to Pair(Icons.Filled.SelfImprovement, "สุขภาวะทางเพศ & สุขภาพจิต ป้องกันพฤติกรรมเสี่ยง"),
+                                        Triple(VhvAgeGroup.WORKING_AGE, "วัยทำงาน (21-59 ปี)", Pair(Color(0xFF0D9488), if (isDark) Color(0xFF042F2E) else Color(0xFFCCFBF1))) to Pair(Icons.Filled.Work, "คัดกรองความดัน-เบาหวาน NCDs & รอบเอว"),
+                                        Triple(VhvAgeGroup.ELDERLY, "ผู้สูงอายุ (60 ปีขึ้นไป)", Pair(Color(0xFFE11D48), if (isDark) Color(0xFF4C0519) else Color(0xFFFFE4E6))) to Pair(Icons.Filled.Elderly, "ประเมิน ADL ติดบ้าน/ติดเตียง & คัดกรองสมองเสื่อม")
+                                    )
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        vhvAgeCards.forEach { (groupData, details) ->
+                                            val (group, title, colors) = groupData
+                                            val (icon, mission) = details
+                                            val count = ageGroupSummary[group.value] ?: 0
+                                            val pct = if (totalLiving > 0) (count.toFloat() / totalLiving.toFloat() * 100).toInt() else 0
+                                            
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable { selectedAgeGroupDetail = group },
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = colors.second.copy(alpha = if (isDark) 0.5f else 0.6f),
+                                                border = BorderStroke(1.dp, colors.first.copy(alpha = 0.25f))
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(40.dp)
+                                                            .clip(CircleShape)
+                                                            .background(colors.first.copy(alpha = 0.15f)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = icon,
+                                                            contentDescription = null,
+                                                            tint = colors.first,
+                                                            modifier = Modifier.size(22.dp)
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(12.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text(
+                                                                text = title,
+                                                                style = MaterialTheme.typography.titleSmall,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onSurface
+                                                            )
+                                                            Surface(
+                                                                shape = RoundedCornerShape(6.dp),
+                                                                color = colors.first.copy(alpha = 0.15f)
+                                                            ) {
+                                                                Text(
+                                                                    text = "$count คน ($pct%)",
+                                                                    style = MaterialTheme.typography.labelSmall,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = colors.first,
+                                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                                )
+                                                            }
+                                                        }
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = mission,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Icon(
+                                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                                        contentDescription = "ดูรายชื่อ",
+                                                        tint = colors.first.copy(alpha = 0.7f),
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             } else if (selectedStatsTab == 1) {
                                 // --- TAB 1: NCDs CLINIC RISK PROFILE ---
@@ -1193,11 +1455,17 @@ fun CitizenStatCard(
     badge: String? = null,
     icon: ImageVector,
     tint: Color,
-    bg: Color
+    bg: Color,
+    onClick: (() -> Unit)? = null
 ) {
     Card(
-        modifier = modifier
-            .shadow(2.dp, RoundedCornerShape(16.dp), spotColor = CardShadowTint),
+        modifier = if (onClick != null) {
+            modifier
+                .shadow(2.dp, RoundedCornerShape(16.dp), spotColor = CardShadowTint)
+                .clickable { onClick() }
+        } else {
+            modifier.shadow(2.dp, RoundedCornerShape(16.dp), spotColor = CardShadowTint)
+        },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
