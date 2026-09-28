@@ -34,7 +34,8 @@ import com.example.ui.theme.MintAccent
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HealthKnowledgeScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToVideoTutorials: (() -> Unit)? = null
 ) {
     val scrollState = rememberScrollState()
     var selectedTab by remember { mutableStateOf(0) }
@@ -57,6 +58,11 @@ fun HealthKnowledgeScreen(
                     }
                 },
                 actions = {
+                    if (onNavigateToVideoTutorials != null) {
+                        IconButton(onClick = onNavigateToVideoTutorials) {
+                            Icon(Icons.Filled.SmartDisplay, contentDescription = "วิดีโอสอนใช้งาน", tint = Color.White)
+                        }
+                    }
                     ThemeQuickToggleButton(iconTint = Color.White)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = EmeraldPrimary)

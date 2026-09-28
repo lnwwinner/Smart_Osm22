@@ -60,7 +60,8 @@ fun DashboardScreen(
     onNavigateToHouseDetail: (Long) -> Unit = {},
     onNavigateToQrScan: () -> Unit = {},
     onNavigateToScreening: (Long) -> Unit = {},
-    onNavigateToMonthlyReport: () -> Unit = {}
+    onNavigateToMonthlyReport: () -> Unit = {},
+    onNavigateToVideoTutorials: (String?) -> Unit = {}
 ) {
     val allPersons by viewModel.allPersons.collectAsStateWithLifecycle()
     val allHouseholdsWithPersons by viewModel.allHouseholdsWithPersons.collectAsStateWithLifecycle()
@@ -311,6 +312,9 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onNavigateToVideoTutorials(null) }) {
+                        Icon(Icons.Filled.SmartDisplay, contentDescription = "วิดีโอสอนใช้งาน", tint = Color.White)
+                    }
                     IconButton(onClick = {
                         notificationTitle = "แจ้งเตือนงานสาธารณสุขชุมชน (อสม.)"
                         notificationMessage = "• สำรวจผู้สูงอายุติดบ้าน/ติดเตียงประจำเดือน\n• ตรวจคัดกรองโรคความดันโลหิตและเบาหวาน\n• บันทึกข้อมูลครัวเรือนที่ยังขาดพิกัด GPS"
@@ -379,6 +383,80 @@ fun DashboardScreen(
                                 color = Color.White.copy(alpha = 0.9f)
                             )
                         }
+                    }
+                }
+            }
+
+            // 0.5 Quick Video Tutorial Banner (1-Minute Easy Guide for VHV)
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onNavigateToVideoTutorials(null) }
+                        .shadow(4.dp, RoundedCornerShape(20.dp)),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    border = BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldPrimary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Filled.PlayArrow,
+                                    contentDescription = "เล่นวิดีโอ",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        "วิดีโอสั้นสอนวิธีใช้งาน",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = EmeraldPrimary
+                                    ) {
+                                        Text(
+                                            "1 นาทีเข้าใจ",
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                Text(
+                                    "สอนลงทะเบียน, สำรวจบ้าน, คัดกรอง NCDs & ซิงค์คลาวด์",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = EmeraldPrimary)
                     }
                 }
             }

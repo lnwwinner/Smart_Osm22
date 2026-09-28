@@ -210,6 +210,13 @@ fun AppNavigation(
                     },
                     onNavigateToMonthlyReport = {
                         navController.navigate("vhv_monthly_report")
+                    },
+                    onNavigateToVideoTutorials = { videoId ->
+                        if (!videoId.isNullOrBlank()) {
+                            navController.navigate("video_tutorials?videoId=$videoId")
+                        } else {
+                            navController.navigate("video_tutorials")
+                        }
                     }
                 )
             }
@@ -261,7 +268,8 @@ fun AppNavigation(
                     onNavigateToUserProfile = { navController.navigate("user_profile") },
                     onNavigateToVhvRegistration = { navController.navigate("vhv_registration") },
                     onNavigateToOsmRp00002 = { navController.navigate("osmrp_directory") },
-                    onNavigateToMonthlyReport = { navController.navigate("vhv_monthly_report") }
+                    onNavigateToMonthlyReport = { navController.navigate("vhv_monthly_report") },
+                    onNavigateToVideoTutorials = { navController.navigate("video_tutorials") }
                 )
             }
             composable("user_profile") {
@@ -317,7 +325,8 @@ fun AppNavigation(
             }
             composable("health_knowledge") {
                 HealthKnowledgeScreen(
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToVideoTutorials = { navController.navigate("video_tutorials") }
                 )
             }
             composable("plan_of_work") {
@@ -431,6 +440,25 @@ fun AppNavigation(
                     viewModel = viewModel,
                     personId = personId,
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "video_tutorials?videoId={videoId}",
+                arguments = listOf(
+                    navArgument("videoId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val videoId = backStackEntry.arguments?.getString("videoId")
+                VideoTutorialScreen(
+                    initialVideoId = videoId,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToRoute = { route ->
+                        navController.navigate(route)
+                    }
                 )
             }
         }
