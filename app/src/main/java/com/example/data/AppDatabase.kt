@@ -207,34 +207,34 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        private const val DATABASE_NAME = "person_db_enc"
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                // Initialize SQLCipher
-                // SQLiteDatabase.loadLibs(context) // Old way
-                
-                // SECURITY: In a production app, the passphrase should be securely stored in Keystore
-                // and should not be a hardcoded string. 
-                val passphrase = "smart-osm-secure-key-2024".toCharArray()
-                
-                // Try net.sqlcipher package which is still common in many distributions
-                val factory = net.sqlcipher.database.SupportFactory(
-                    net.sqlcipher.database.SQLiteDatabase.getBytes(passphrase)
-                )
+                INSTANCE ?: run {
+                    val appContext = context.applicationContext
+                    val passphrase = DatabaseKeyManager.getOrCreatePassphrase(appContext)
 
-                val instance = androidx.room.Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "person_db_enc"
-                )
-                .openHelperFactory(factory)
-                .addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                    MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
-                )
-                .build()
-                INSTANCE = instance
-                instance
+                    val factory = net.sqlcipher.database.SupportFactory(
+                        net.sqlcipher.database.SQLiteDatabase.getBytes(passphrase.toCharArray())
+                    )
+
+                    val instance = androidx.room.Room.databaseBuilder(
+                        appContext,
+                        AppDatabase::class.java,
+                        DATABASE_NAME
+                    )
+                        .openHelperFactory(factory)
+                        .addMigrations(
+                            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                            MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                            MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
+                        )
+                        .build()
+
+                    INSTANCE = instance
+                    instance
+                }
             }
         }
     }
