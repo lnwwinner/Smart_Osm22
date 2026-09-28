@@ -1,62 +1,98 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get current user's profile data
-    function getUserProfile() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
-    }
-    
-    // Helper function to check if the user is authenticated
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Helper function to check if user has access to a specific village
-    function hasVillageAccess(villageNo) {
-      // SECURITY: villageNo must be verified. Here we rely on users collection
-      // but in production, this should come from a read-only 'permissions' collection.
-      let profile = getUserProfile();
-      return isAuthenticated() && profile != null && profile.villageNo == villageNo;
+
+    function isNonAnonymous() {
+      return isAuthenticated() &&
+        request.auth.token.firebase.sign_in_provider != "anonymous";
     }
 
-    // 1. Users collection: Only owner can read/write their own profile.
-    // Owners CANNOT change their own villageNo once it's established.
+    // Server/admin-controlled authorization source.
+    // Clients cannot create, update, or delete these documents.
+    function hasVillageAssignment() {
+      return isNonAnonymous() &&
+        exists(/databases/$(database)/documents/village_assignments/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/village_assignments/$(request.auth.uid)).data.active == true;
+    }
+
+    function assignedVillageNo() {
+      return get(/databases/$(database)/documents/village_assignments/$(request.auth.uid)).data.villageNo;
+    }
+
+    function hasVillageAccess(villageNo) {
+      return hasVillageAssignment() &&
+        assignedVillageNo() == villageNo;
+    }
+
     match /users/{uid} {
       allow read: if isAuthenticated() && request.auth.uid == uid;
-      allow create: if isAuthenticated() && request.auth.uid == uid;
-      allow update: if isAuthenticated() && request.auth.uid == uid 
-                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roleTitle']));
+
+      allow create: if isNonAnonymous() &&
+        request.auth.uid == uid &&
+        hasVillageAssignment() &&
+        request.resource.data.villageNo == assignedVillageNo();
+
+      allow update: if isNonAnonymous() &&
+        request.auth.uid == uid &&
+        hasVillageAssignment() &&
+        request.resource.data.villageNo == assignedVillageNo() &&
+        resource.data.villageNo == assignedVillageNo();
+
+      allow delete: if false;
     }
 
-    // 2. Households collection: Strictly filtered by village access
     match /households/{householdUuid} {
-      allow read: if isAuthenticated() && hasVillageAccess(resource.data.villageNo);
-      allow create: if isAuthenticated() && hasVillageAccess(request.resource.data.villageNo);
-      allow update: if isAuthenticated() && hasVillageAccess(resource.data.villageNo) && hasVillageAccess(request.resource.data.villageNo);
-      allow delete: if isAuthenticated() && hasVillageAccess(resource.data.villageNo);
+      allow read: if hasVillageAccess(resource.data.villageNo);
+      allow create: if hasVillageAccess(request.resource.data.villageNo);
+      allow update: if
+        hasVillageAccess(resource.data.villageNo) &&
+        hasVillageAccess(request.resource.data.villageNo);
+      allow delete: if hasVillageAccess(resource.data.villageNo);
     }
 
-    // 3. Persons collection: Strictly filtered by village access
     match /persons/{personUuid} {
-      allow read: if isAuthenticated() && hasVillageAccess(resource.data.villageNo);
-      allow create: if isAuthenticated() && hasVillageAccess(request.resource.data.villageNo);
-      allow update: if isAuthenticated() && hasVillageAccess(resource.data.villageNo) && hasVillageAccess(request.resource.data.villageNo);
-      allow delete: if isAuthenticated() && hasVillageAccess(resource.data.villageNo);
+      allow read: if hasVillageAccess(resource.data.villageNo);
+      allow create: if hasVillageAccess(request.resource.data.villageNo);
+      allow update: if
+        hasVillageAccess(resource.data.villageNo) &&
+        hasVillageAccess(request.resource.data.villageNo);
+      allow delete: if hasVillageAccess(resource.data.villageNo);
     }
 
-    // 4. Tombstones collection (for sync consistency)
     match /tombstones/{tombstoneId} {
-      allow read: if isAuthenticated() && hasVillageAccess(resource.data.villageNo);
-      allow create: if isAuthenticated() && hasVillageAccess(request.resource.data.villageNo);
-      allow delete: if isAuthenticated() && hasVillageAccess(resource.data.villageNo);
+      allow read: if hasVillageAccess(resource.data.villageNo);
+      allow create: if hasVillageAccess(request.resource.data.villageNo);
+      allow update: if
+        hasVillageAccess(resource.data.villageNo) &&
+        hasVillageAccess(request.resource.data.villageNo);
+      allow delete: if hasVillageAccess(resource.data.villageNo);
     }
-    
-    // 5. VHV Members collection: Public read for authenticated users, restricted write
+
+    match /health_screenings/{screeningUuid} {
+      allow read: if hasVillageAccess(resource.data.villageNo);
+      allow create: if hasVillageAccess(request.resource.data.villageNo);
+      allow update: if
+        hasVillageAccess(resource.data.villageNo) &&
+        hasVillageAccess(request.resource.data.villageNo);
+      allow delete: if hasVillageAccess(resource.data.villageNo);
+    }
+
     match /vhv_members/{memberId} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Managed by admin or backend
+      allow read: if hasVillageAccess(resource.data.villageNo);
+      allow create: if hasVillageAccess(request.resource.data.villageNo);
+      allow update: if
+        hasVillageAccess(resource.data.villageNo) &&
+        hasVillageAccess(request.resource.data.villageNo);
+      allow delete: if hasVillageAccess(resource.data.villageNo);
+    }
+
+    match /village_assignments/{uid} {
+      allow read: if isNonAnonymous() && request.auth.uid == uid;
+      allow write: if false;
     }
   }
 }
