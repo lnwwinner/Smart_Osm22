@@ -257,6 +257,23 @@ fun MapScreen(
     var currentUserLocation by remember { mutableStateOf<GeoPoint?>(null) }
     var showAddHouseholdDialog by remember { mutableStateOf(false) }
 
+    // Advanced GIS Field Assistance States
+    var activeGisTool by remember { mutableStateOf(GisActiveTool.NONE) }
+    var measuredPoints by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+    var epidemicBufferState by remember { mutableStateOf(EpidemicBufferState()) }
+    var visitRouteState by remember { mutableStateOf(FieldVisitRouteState()) }
+
+    val totalMeasuredDistanceMeters = remember(measuredPoints) {
+        if (measuredPoints.size < 2) 0.0
+        else {
+            var sum = 0.0
+            for (i in 0 until measuredPoints.size - 1) {
+                sum += calculateDistanceMeters(measuredPoints[i], measuredPoints[i + 1])
+            }
+            sum
+        }
+    }
+
     val selectedHousePersons = remember(selectedHouse, allHouseholdsWithPersons) {
         allHouseholdsWithPersons.find { it.household.id == selectedHouse?.householdId }?.persons ?: emptyList()
     }
@@ -501,11 +518,25 @@ fun MapScreen(
                         mapView.setTileSource(desiredTileSource)
                     }
 
-                    mapView.overlays.removeAll { it is Marker || it is MapEventsOverlay || it is org.osmdroid.views.overlay.Polygon }
+                    mapView.overlays.removeAll { it is Marker || it is MapEventsOverlay || it is org.osmdroid.views.overlay.Polygon || it is org.osmdroid.views.overlay.Polyline }
 
                     // Add Touch Events Overlay for interactive map tapping and long press
                     val mapEventsReceiver = object : MapEventsReceiver {
                         override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                            if (activeGisTool == GisActiveTool.MEASURE_DISTANCE) {
+                                measuredPoints = measuredPoints + p
+                                return true
+                            }
+                            if (activeGisTool == GisActiveTool.EPIDEMIC_BUFFER) {
+                                val affected = findHouseholdsWithinBuffer(p, 100.0, mappedHouses)
+                                epidemicBufferState = EpidemicBufferState(
+                                    center = p,
+                                    radiusMeters = 100.0,
+                                    affectedHouses = affected,
+                                    isEnabled = true
+                                )
+                                return true
+                            }
                             if (isPinningMode) {
                                 pendingPinLocation = p
                                 return true
@@ -516,10 +547,13 @@ fun MapScreen(
                         }
 
                         override fun longPressHelper(p: GeoPoint): Boolean {
-                            pendingPinLocation = p
-                            isPinningMode = true
-                            Toast.makeText(context, "เลือกพิกัดแล้ว กดบันทึกเพื่อกำหนดครัวเรือน", Toast.LENGTH_SHORT).show()
-                            return true
+                            if (activeGisTool == GisActiveTool.NONE) {
+                                pendingPinLocation = p
+                                isPinningMode = true
+                                Toast.makeText(context, "เลือกพิกัดแล้ว กดบันทึกเพื่อกำหนดครัวเรือน", Toast.LENGTH_SHORT).show()
+                                return true
+                            }
+                            return false
                         }
                     }
                     mapView.overlays.add(0, MapEventsOverlay(mapEventsReceiver))
@@ -699,6 +733,84 @@ fun MapScreen(
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                         }
                         mapView.overlays.add(userMarker)
+                    }
+
+                    // 1. Distance Measurement Overlay
+                    if (activeGisTool == GisActiveTool.MEASURE_DISTANCE && measuredPoints.isNotEmpty()) {
+                        if (measuredPoints.size > 1) {
+                            val line = org.osmdroid.views.overlay.Polyline().apply {
+                                setPoints(measuredPoints)
+                                outlinePaint.color = android.graphics.Color.rgb(124, 58, 237)
+                                outlinePaint.strokeWidth = 6f
+                            }
+                            mapView.overlays.add(line)
+                        }
+                        measuredPoints.forEachIndexed { idx, pt ->
+                            val ptMarker = Marker(mapView).apply {
+                                position = pt
+                                title = "จุดที่ ${idx + 1}"
+                                icon = createTourStopMarkerDrawable(context, idx + 1, isCurrent = false, isDone = false)
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            }
+                            mapView.overlays.add(ptMarker)
+                        }
+                    }
+
+                    // 2. 100-Meter Epidemic Buffer Overlay
+                    if (epidemicBufferState.isEnabled && epidemicBufferState.center != null) {
+                        val center = epidemicBufferState.center!!
+                        val circlePoints = createCirclePoints(center, epidemicBufferState.radiusMeters)
+                        val circlePolygon = org.osmdroid.views.overlay.Polygon().apply {
+                            points = circlePoints
+                            fillPaint.color = android.graphics.Color.argb(45, 220, 38, 38)
+                            outlinePaint.color = android.graphics.Color.rgb(220, 38, 38)
+                            outlinePaint.strokeWidth = 4f
+                        }
+                        mapView.overlays.add(circlePolygon)
+
+                        val centerMarker = Marker(mapView).apply {
+                            position = center
+                            title = "จุดศูนย์กลางเฝ้าระวังโรค (100 เมตร)"
+                            snippet = "พบครัวเรือนในรัศมี ${epidemicBufferState.affectedHouses.size} หลัง"
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        }
+                        mapView.overlays.add(centerMarker)
+                    }
+
+                    // 3. Smart Field Visit Route Overlay
+                    if (visitRouteState.isRouteActive && visitRouteState.stops.isNotEmpty()) {
+                        val stopPoints = visitRouteState.stops.mapNotNull {
+                            if (it.latitude != null && it.longitude != null) GeoPoint(it.latitude!!, it.longitude!!) else null
+                        }
+                        if (stopPoints.size > 1) {
+                            val routeLine = org.osmdroid.views.overlay.Polyline().apply {
+                                setPoints(stopPoints)
+                                outlinePaint.color = android.graphics.Color.rgb(37, 99, 235)
+                                outlinePaint.strokeWidth = 8f
+                                outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+                            }
+                            mapView.overlays.add(routeLine)
+                        }
+
+                        visitRouteState.stops.forEachIndexed { idx, st ->
+                            val lat = st.latitude ?: return@forEachIndexed
+                            val lon = st.longitude ?: return@forEachIndexed
+                            val isCurrent = idx == visitRouteState.currentStopIndex
+                            val isDone = st.householdId in visitRouteState.completedHouseholdIds
+                            val tourMarker = Marker(mapView).apply {
+                                position = GeoPoint(lat, lon)
+                                title = "จุดแวะที่ ${idx + 1}: บ้านเลขที่ ${st.houseNo}"
+                                snippet = "สมาชิก ${st.totalMembers} คน (ผู้สูงอายุ ${st.elderly} คน)"
+                                icon = createTourStopMarkerDrawable(context, idx + 1, isCurrent = isCurrent, isDone = isDone)
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                            }
+                            tourMarker.setOnMarkerClickListener { _, _ ->
+                                selectedHouse = st
+                                showHouseholdSheet = true
+                                true
+                            }
+                            mapView.overlays.add(tourMarker)
+                        }
                     }
 
                     mapView.invalidate()
@@ -1010,6 +1122,37 @@ fun MapScreen(
                         )
                     }
                 }
+
+                // Advanced GIS Floating Tool Selector Bar
+                AdvancedGisFloatingBar(
+                    activeTool = activeGisTool,
+                    onSelectTool = { tool ->
+                        activeGisTool = tool
+                        if (tool != GisActiveTool.MEASURE_DISTANCE) measuredPoints = emptyList()
+                        if (tool != GisActiveTool.EPIDEMIC_BUFFER) epidemicBufferState = EpidemicBufferState()
+                        if (tool == GisActiveTool.VISIT_ROUTE && !visitRouteState.isRouteActive) {
+                            val start = currentUserLocation ?: mapViewRef?.mapCenter?.let { GeoPoint(it.latitude, it.longitude) } ?: GeoPoint(initialLat, initialLon)
+                            val elderlyHouses = mappedHouses.filter { it.elderly > 0 }
+                            val targetHouses = if (elderlyHouses.isNotEmpty()) elderlyHouses else mappedHouses.take(8)
+                            val optimized = optimizeVisitRouteOrder(start, targetHouses)
+                            visitRouteState = FieldVisitRouteState(
+                                stops = optimized,
+                                currentStopIndex = 0,
+                                isRouteActive = true
+                            )
+                            Toast.makeText(context, "สร้างเส้นทางเยี่ยมบ้านอัตโนมัติ ${optimized.size} หลัง", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onCenterGps = {
+                        val loc = currentUserLocation
+                        if (loc != null) {
+                            mapViewRef?.controller?.animateTo(loc)
+                            mapViewRef?.controller?.setZoom(18.0)
+                        } else {
+                            Toast.makeText(context, "กำลังค้นหาสัญญาณ GPS...", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
 
                 // Collapsible Population Distribution Overview Card
                 AnimatedVisibility(
@@ -1544,6 +1687,104 @@ fun MapScreen(
                         }
                     }
                 }
+            }
+
+            // Advanced GIS Tool HUD 1: Measure Distance
+            AnimatedVisibility(
+                visible = activeGisTool == GisActiveTool.MEASURE_DISTANCE,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            ) {
+                GisMeasureHud(
+                    measuredPoints = measuredPoints,
+                    totalMeters = totalMeasuredDistanceMeters,
+                    onReset = { measuredPoints = emptyList() },
+                    onClose = {
+                        activeGisTool = GisActiveTool.NONE
+                        measuredPoints = emptyList()
+                    }
+                )
+            }
+
+            // Advanced GIS Tool HUD 2: Epidemic Buffer Sheet
+            AnimatedVisibility(
+                visible = epidemicBufferState.isEnabled && epidemicBufferState.center != null,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            ) {
+                if (epidemicBufferState.center != null) {
+                    EpidemicBufferInfoSheet(
+                        centerPoint = epidemicBufferState.center!!,
+                        radiusMeters = epidemicBufferState.radiusMeters,
+                        affectedHouses = epidemicBufferState.affectedHouses,
+                        onSelectHouse = { h ->
+                            selectedHouse = h
+                            showHouseholdSheet = true
+                            if (h.latitude != null && h.longitude != null) {
+                                mapViewRef?.controller?.animateTo(GeoPoint(h.latitude!!, h.longitude!!))
+                            }
+                        },
+                        onNavigateGoogleMaps = { dest, label ->
+                            launchGoogleMapsNavigation(context, dest, label)
+                        },
+                        onClose = {
+                            epidemicBufferState = EpidemicBufferState()
+                            if (activeGisTool == GisActiveTool.EPIDEMIC_BUFFER) activeGisTool = GisActiveTool.NONE
+                        }
+                    )
+                }
+            }
+
+            // Advanced GIS Tool HUD 3: Field Visit Route HUD
+            AnimatedVisibility(
+                visible = visitRouteState.isRouteActive,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp)
+            ) {
+                FieldVisitRouteHud(
+                    routeState = visitRouteState,
+                    currentLocation = currentUserLocation,
+                    onNextStop = {
+                        if (visitRouteState.currentStopIndex < visitRouteState.stops.size - 1) {
+                            val nextIdx = visitRouteState.currentStopIndex + 1
+                            visitRouteState = visitRouteState.copy(currentStopIndex = nextIdx)
+                            val nextStop = visitRouteState.stops[nextIdx]
+                            if (nextStop.latitude != null && nextStop.longitude != null) {
+                                mapViewRef?.controller?.animateTo(GeoPoint(nextStop.latitude!!, nextStop.longitude!!))
+                            }
+                        } else {
+                            Toast.makeText(context, "เยี่ยมครบทุกหลังคาเรือนในเส้นทางแล้ว!", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    onPreviousStop = {
+                        if (visitRouteState.currentStopIndex > 0) {
+                            val prevIdx = visitRouteState.currentStopIndex - 1
+                            visitRouteState = visitRouteState.copy(currentStopIndex = prevIdx)
+                        }
+                    },
+                    onNavigateGoogleMaps = { dest, label ->
+                        launchGoogleMapsNavigation(context, dest, label)
+                    },
+                    onStopVisitDone = { h ->
+                        visitRouteState = visitRouteState.copy(
+                            completedHouseholdIds = visitRouteState.completedHouseholdIds + h.householdId
+                        )
+                        Toast.makeText(context, "บันทึกการเยี่ยมบ้านเลขที่ ${h.houseNo} เรียบร้อย", Toast.LENGTH_SHORT).show()
+                    },
+                    onCancelRoute = {
+                        visitRouteState = FieldVisitRouteState()
+                        if (activeGisTool == GisActiveTool.VISIT_ROUTE) activeGisTool = GisActiveTool.NONE
+                    }
+                )
             }
         }
 

@@ -59,7 +59,7 @@ interface HouseholdDao {
     fun getHouseholdWithPersonsById(householdId: Long): Flow<HouseholdWithPersons?>
 
     @Query("""
-        SELECT h.id as householdId, h.houseNo,
+        SELECT h.id as householdId, h.houseNo, h.villageNo,
         COUNT(p.id) as totalMembers,
         SUM(CASE WHEN p.gender = 'MALE' THEN 1 ELSE 0 END) as males,
         SUM(CASE WHEN p.gender = 'FEMALE' THEN 1 ELSE 0 END) as females,
@@ -75,7 +75,7 @@ interface HouseholdDao {
         (SELECT fullName FROM persons WHERE householdId = h.id AND houseStatus = 'HEAD' LIMIT 1) as headName
         FROM households h
         LEFT JOIN persons p ON h.id = p.householdId
-        GROUP BY h.id, h.houseNo, h.latitude, h.longitude, h.dataStatus
+        GROUP BY h.id, h.houseNo, h.villageNo, h.latitude, h.longitude, h.dataStatus
         ORDER BY h.houseNo ASC
     """)
     fun getHouseSummary(): Flow<List<HouseSummary>>

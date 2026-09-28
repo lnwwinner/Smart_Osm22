@@ -3,6 +3,7 @@ package com.example.data
 data class HouseSummary(
     val householdId: Long,
     val houseNo: String,
+    val villageNo: String = "",
     val totalMembers: Int,
     val males: Int,
     val females: Int,
