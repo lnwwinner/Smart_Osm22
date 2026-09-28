@@ -474,6 +474,55 @@ fun DeveloperInfoScreen(
                 }
             }
 
+            // Diagnostic Card (Firebase & Sync Health Check)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNavigateToDiagnostic)
+                    .shadow(4.dp, RoundedCornerShape(22.dp), spotColor = CardShadowTint),
+                shape = RoundedCornerShape(22.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(EmeraldPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.HealthAndSafety, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+                        }
+                        Column {
+                            Text(
+                                text = "ตรวจสอบสถานะระบบและวินิจฉัย (Diagnostics)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "ทดสอบการเชื่อมต่อ Firebase, Google Account และเปรียบเทียบข้อมูล Room vs Cloud",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = EmeraldPrimary)
+                }
+            }
+
             // Plan of Work Card
             Card(
                 modifier = Modifier

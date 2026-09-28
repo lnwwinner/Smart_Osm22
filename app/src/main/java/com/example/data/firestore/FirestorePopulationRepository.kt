@@ -116,6 +116,17 @@ open class FirestorePopulationRepository(
         }
     }
 
+    private suspend fun ensureAuth() {
+        try {
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            if (auth.currentUser == null) {
+                auth.signInAnonymously().await()
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "FirebaseAuth ensureAuth note: ${e.message}")
+        }
+    }
+
     /**
      * Observes real-time changes to households, optionally filtered by villageNo.
      */
@@ -134,8 +145,8 @@ open class FirestorePopulationRepository(
 
         val registration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.e(TAG, "Snapshot error observing households", error)
-                close(error)
+                Log.w(TAG, "Snapshot error observing households (e.g. auth/permission): ${error.message}")
+                trySend(emptyList())
                 return@addSnapshotListener
             }
             if (snapshot != null) {
@@ -163,8 +174,8 @@ open class FirestorePopulationRepository(
         val docRef = firestore.collection(COLLECTION_HOUSEHOLDS).document(householdUuid)
         val registration = docRef.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.e(TAG, "Snapshot error observing household $householdUuid", error)
-                close(error)
+                Log.w(TAG, "Snapshot error observing household $householdUuid (e.g. auth/permission): ${error.message}")
+                trySend(null)
                 return@addSnapshotListener
             }
             if (snapshot != null && snapshot.exists() && snapshot.getBoolean("isDeleted") != true) {
@@ -283,8 +294,8 @@ open class FirestorePopulationRepository(
 
         val registration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.e(TAG, "Snapshot error observing persons for $householdUuid", error)
-                close(error)
+                Log.w(TAG, "Snapshot error observing persons for $householdUuid (e.g. auth/permission): ${error.message}")
+                trySend(emptyList())
                 return@addSnapshotListener
             }
             if (snapshot != null) {

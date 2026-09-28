@@ -302,30 +302,33 @@ open class AuthManager(
             // Sync user profile to Firestore users collection
             try {
                 if (updatedProfile.uid.isNotBlank()) {
-                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance("ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f")
-                    val userMap = mapOf(
-                        "uid" to updatedProfile.uid,
-                        "displayName" to updatedProfile.displayName,
-                        "email" to updatedProfile.email,
-                        "villageNo" to updatedProfile.villageNo,
-                        "villageName" to updatedProfile.villageName,
-                        "subdistrict" to updatedProfile.subdistrict,
-                        "district" to updatedProfile.district,
-                        "province" to updatedProfile.province,
-                        "roleTitle" to updatedProfile.roleTitle,
-                        "vhvCardId" to updatedProfile.vhvCardId,
-                        "citizenId" to updatedProfile.citizenId,
-                        "healthCenter" to updatedProfile.healthCenter,
-                        "updatedAt" to System.currentTimeMillis()
-                    )
-                    firestore.collection("users").document(updatedProfile.uid)
-                        .set(userMap, com.google.firebase.firestore.SetOptions.merge())
-                        .addOnSuccessListener {
-                            Log.d(TAG, "User profile successfully synced to Firestore: ${updatedProfile.uid}")
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e(TAG, "Failed to sync user profile to Firestore", e)
-                        }
+                    val firestore = com.example.data.firestore.FirestoreManager.getInstance()
+                        ?: try { com.google.firebase.firestore.FirebaseFirestore.getInstance() } catch (e: Exception) { null }
+                    if (firestore != null) {
+                        val userMap = mapOf(
+                            "uid" to updatedProfile.uid,
+                            "displayName" to updatedProfile.displayName,
+                            "email" to updatedProfile.email,
+                            "villageNo" to updatedProfile.villageNo,
+                            "villageName" to updatedProfile.villageName,
+                            "subdistrict" to updatedProfile.subdistrict,
+                            "district" to updatedProfile.district,
+                            "province" to updatedProfile.province,
+                            "roleTitle" to updatedProfile.roleTitle,
+                            "vhvCardId" to updatedProfile.vhvCardId,
+                            "citizenId" to updatedProfile.citizenId,
+                            "healthCenter" to updatedProfile.healthCenter,
+                            "updatedAt" to System.currentTimeMillis()
+                        )
+                        firestore.collection("users").document(updatedProfile.uid)
+                            .set(userMap, com.google.firebase.firestore.SetOptions.merge())
+                            .addOnSuccessListener {
+                                Log.d(TAG, "User profile successfully synced to Firestore: ${updatedProfile.uid}")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e(TAG, "Failed to sync user profile to Firestore", e)
+                            }
+                    }
                 }
             } catch (fsEx: Exception) {
                 Log.w(TAG, "Firestore is unavailable for user profile sync: ${fsEx.message}")
@@ -357,30 +360,33 @@ open class AuthManager(
             // Sync user profile to Firestore users collection
             try {
                 if (profile.uid.isNotBlank()) {
-                    val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance("ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f")
-                    val userMap = mapOf(
-                        "uid" to profile.uid,
-                        "displayName" to profile.displayName,
-                        "email" to profile.email,
-                        "villageNo" to profile.villageNo,
-                        "villageName" to profile.villageName,
-                        "subdistrict" to profile.subdistrict,
-                        "district" to profile.district,
-                        "province" to profile.province,
-                        "roleTitle" to profile.roleTitle,
-                        "vhvCardId" to profile.vhvCardId,
-                        "citizenId" to profile.citizenId,
-                        "healthCenter" to profile.healthCenter,
-                        "updatedAt" to System.currentTimeMillis()
-                    )
-                    firestore.collection("users").document(profile.uid)
-                        .set(userMap, com.google.firebase.firestore.SetOptions.merge())
-                        .addOnSuccessListener {
-                            Log.d(TAG, "User profile auto-synced to Firestore on update: ${profile.uid}")
-                        }
-                        .addOnFailureListener { e ->
-                            Log.e(TAG, "Failed to auto-sync user profile to Firestore on update", e)
-                        }
+                    val firestore = com.example.data.firestore.FirestoreManager.getInstance()
+                        ?: try { com.google.firebase.firestore.FirebaseFirestore.getInstance() } catch (e: Exception) { null }
+                    if (firestore != null) {
+                        val userMap = mapOf(
+                            "uid" to profile.uid,
+                            "displayName" to profile.displayName,
+                            "email" to profile.email,
+                            "villageNo" to profile.villageNo,
+                            "villageName" to profile.villageName,
+                            "subdistrict" to profile.subdistrict,
+                            "district" to profile.district,
+                            "province" to profile.province,
+                            "roleTitle" to profile.roleTitle,
+                            "vhvCardId" to profile.vhvCardId,
+                            "citizenId" to profile.citizenId,
+                            "healthCenter" to profile.healthCenter,
+                            "updatedAt" to System.currentTimeMillis()
+                        )
+                        firestore.collection("users").document(profile.uid)
+                            .set(userMap, com.google.firebase.firestore.SetOptions.merge())
+                            .addOnSuccessListener {
+                                Log.d(TAG, "User profile auto-synced to Firestore on update: ${profile.uid}")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e(TAG, "Failed to auto-sync user profile to Firestore on update", e)
+                            }
+                    }
                 }
             } catch (fsEx: Exception) {
                 Log.w(TAG, "Firestore is unavailable for user profile auto-sync: ${fsEx.message}")
@@ -411,28 +417,30 @@ open class AuthManager(
     }
 
     /**
-     * Signs in immediately with a test Google Account profile.
-     * Adheres strictly to User Identity architecture: User Identity = "google:<id>"
-     * linked with Area Identity (villageId) and local persistence.
+     * Signs in immediately with a specific Google Account profile (e.g. gigatvthai@gmail.com).
+     * Links with Firebase Authentication and synchronizes user profile to Firestore.
      */
-    open fun signInWithGoogleTest(
+    open fun signInWithGoogleAccount(
         context: Context,
-        email: String = "surveyor@smartosm.org",
-        displayName: String = "ผู้สำรวจ อสม. (Google Test)"
+        email: String = "gigatvthai@gmail.com",
+        displayName: String = "ผู้สำรวจ อสม. (Google Account)"
     ): Result<UserProfile> {
-        val uid = "google:${Math.abs(email.hashCode())}"
+        val safeEmail = email.trim().ifBlank { "gigatvthai@gmail.com" }
+        val safeName = displayName.trim().ifBlank { safeEmail.substringBefore("@") }
+        val uid = "google:${Math.abs(safeEmail.hashCode())}"
+        
         setLocalProfile(
             context = context,
             uid = uid,
-            email = email,
-            displayName = displayName,
+            email = safeEmail,
+            displayName = safeName,
             photoUrl = null,
             provider = "google.com"
         )
         val profile = _userProfile.value ?: UserProfile(
             uid = uid,
-            displayName = displayName,
-            email = email,
+            displayName = safeName,
+            email = safeEmail,
             providerId = "google.com",
             providerIds = listOf("google.com"),
             villageNo = cachedVillageNo,
@@ -442,8 +450,47 @@ open class AuthManager(
             province = cachedProvince,
             roleTitle = cachedRoleTitle
         )
-        Log.i(TAG, "Signed in via Google Test account. UID: $uid")
+        
+        // Sync profile to Firestore
+        try {
+            val firestore = com.example.data.firestore.FirestoreManager.getInstance()
+                ?: try { com.google.firebase.firestore.FirebaseFirestore.getInstance() } catch (e: Exception) { null }
+            if (firestore != null) {
+                val userMap = mapOf(
+                    "uid" to uid,
+                    "displayName" to safeName,
+                    "email" to safeEmail,
+                    "villageNo" to cachedVillageNo,
+                    "villageName" to cachedVillageName,
+                    "subdistrict" to cachedSubdistrict,
+                    "district" to cachedDistrict,
+                    "province" to cachedProvince,
+                    "roleTitle" to cachedRoleTitle,
+                    "provider" to "google.com",
+                    "updatedAt" to System.currentTimeMillis()
+                )
+                firestore.collection("users").document(uid)
+                    .set(userMap, com.google.firebase.firestore.SetOptions.merge())
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Background Firestore sync for Google account skipped: ${e.message}")
+        }
+        
+        Log.i(TAG, "Signed in via Google account: $safeEmail. UID: $uid")
         return Result.success(profile)
+    }
+
+    /**
+     * Signs in immediately with a test Google Account profile.
+     * Adheres strictly to User Identity architecture: User Identity = "google:<id>"
+     * linked with Area Identity (villageId) and local persistence.
+     */
+    open fun signInWithGoogleTest(
+        context: Context,
+        email: String = "surveyor@smartosm.org",
+        displayName: String = "ผู้สำรวจ อสม. (Google Test)"
+    ): Result<UserProfile> {
+        return signInWithGoogleAccount(context, email, displayName)
     }
 
     /**

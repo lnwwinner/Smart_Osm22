@@ -119,6 +119,31 @@ open class RoomFirestoreSyncHelper(
         }
     }
 
+    private suspend fun ensureAuth() {
+        try {
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            if (auth.currentUser == null) {
+                auth.signInAnonymously().await()
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Firebase anonymous auth note: ${e.message}")
+        }
+    }
+
+    private fun formatFirestoreError(e: Throwable): String {
+        val msg = e.message ?: ""
+        return when {
+            msg.contains("PERMISSION_DENIED", ignoreCase = true) || 
+            (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) -> {
+                "สิทธิ์การเข้าถึง Cloud Firestore ถูกปฏิเสธ (PERMISSION_DENIED): โปรดตรวจสอบ Firebase Security Rules หรือเข้าสู่ระบบ Google (ระบบทำงานและบันทึกใน Room Database ได้ตามปกติ)"
+            }
+            msg.contains("UNAVAILABLE", ignoreCase = true) -> {
+                "ไม่สามารถเชื่อมต่อ Cloud Firestore ได้ในขณะนี้ (โหมดออฟไลน์): ข้อมูลถูกบันทึกในเครื่อง (Room Database) เรียบร้อยแล้ว"
+            }
+            else -> msg.ifBlank { "เกิดข้อผิดพลาดในการเชื่อมต่อ Cloud Firestore" }
+        }
+    }
+
     // =========================================================================
     // ROOM -> FIRESTORE (Upload / Persist)
     // =========================================================================
@@ -138,6 +163,8 @@ open class RoomFirestoreSyncHelper(
                 return@withContext Result.failure(err)
             }
 
+            ensureAuth()
+
             // Retrieve target active villageNo for partitioning
             val activeVillageNo = villageNo ?: try {
                 context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
@@ -147,8 +174,13 @@ open class RoomFirestoreSyncHelper(
             }
 
             // Fetch tombstones to prevent re-uploading deleted records
-            val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
-            val deletedUuids = tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
+            val deletedUuids = try {
+                val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
+                tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
+            } catch (e: Exception) {
+                Log.w(TAG, "Tombstone fetch note: ${e.message}")
+                emptySet()
+            }
 
             val households = repository.getAllHouseholds()
                 .filter { !deletedUuids.contains(it.householdUuid) && (activeVillageNo == null || it.villageNo == activeVillageNo) }
@@ -217,8 +249,8 @@ open class RoomFirestoreSyncHelper(
             Log.d(TAG, "syncRoomToFirestore cancelled.")
             throw ce
         } catch (e: Exception) {
-            Log.e(TAG, "Error syncing Room to Firestore", e)
-            val errorMsg = e.message ?: "เกิดข้อผิดพลาดในการซิงค์ข้อมูลกับ Firestore"
+            Log.e(TAG, "Error syncing Room to Firestore: ${e.message}")
+            val errorMsg = formatFirestoreError(e)
             _syncState.value = SyncState.Error(errorMsg, e)
             Result.failure(e)
         }
@@ -232,6 +264,7 @@ open class RoomFirestoreSyncHelper(
         persons: List<Person> = emptyList()
     ): Result<SyncResult> = withContext(Dispatchers.IO) {
         try {
+            ensureAuth()
             val firestore = getFirestore()
             
             // Check if household has been tombstoned
@@ -279,8 +312,9 @@ open class RoomFirestoreSyncHelper(
             Log.d(TAG, "syncHouseholdToFirestore cancelled.")
             throw ce
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to sync household ${household.houseNo}", e)
-            Result.failure(e)
+            Log.e(TAG, "Failed to sync household ${household.houseNo}: ${e.message}")
+            val errorMsg = formatFirestoreError(e)
+            Result.failure(Exception(errorMsg, e))
         }
     }
 
@@ -308,6 +342,7 @@ open class RoomFirestoreSyncHelper(
         householdHouseNo: String = ""
     ): Result<SyncResult> = withContext(Dispatchers.IO) {
         try {
+            ensureAuth()
             // Check if person has been tombstoned
             if (checkTombstoneExists(person.personUuid, "person")) {
                 return@withContext Result.failure(IllegalStateException("Cannot sync: Person ${person.personUuid} was deleted on Cloud."))
@@ -330,8 +365,9 @@ open class RoomFirestoreSyncHelper(
             Log.d(TAG, "syncPersonToFirestore cancelled.")
             throw ce
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to sync person ${person.fullName}", e)
-            Result.failure(e)
+            Log.e(TAG, "Failed to sync person ${person.fullName}: ${e.message}")
+            val errorMsg = formatFirestoreError(e)
+            Result.failure(Exception(errorMsg, e))
         }
     }
 
@@ -342,6 +378,7 @@ open class RoomFirestoreSyncHelper(
      */
     suspend fun deleteHouseholdFromFirestore(householdUuid: String, personUuids: List<String> = emptyList()): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            ensureAuth()
             val firestore = checkFirebaseConfiguredOrError()
                 ?: return@withContext Result.success(Unit)
             
@@ -384,6 +421,7 @@ open class RoomFirestoreSyncHelper(
      */
     open suspend fun deletePersonFromFirestore(personUuid: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            ensureAuth()
             val firestore = getFirestore()
             val batch = firestore.batch()
 
@@ -426,6 +464,8 @@ open class RoomFirestoreSyncHelper(
                 return@withContext Result.failure(err)
             }
 
+            ensureAuth()
+
             // Retrieve target active villageNo for partitioning
             val activeVillageNo = villageNo ?: try {
                 context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
@@ -435,8 +475,13 @@ open class RoomFirestoreSyncHelper(
             }
 
             // Fetch tombstones
-            val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
-            val deletedUuids = tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
+            val deletedUuids = try {
+                val tombstoneDocs = firestore.collection(COLLECTION_TOMBSTONES).get().await()
+                tombstoneDocs.documents.mapNotNull { it.getString("uuid") }.toSet()
+            } catch (e: Exception) {
+                Log.w(TAG, "Tombstone fetch in syncFirestoreToRoom note: ${e.message}")
+                emptySet()
+            }
 
             // Remove stale local Room records that have been deleted in Cloud
             val allLocalHouseholdsToDelete = repository.getAllHouseholds()
@@ -528,8 +573,8 @@ open class RoomFirestoreSyncHelper(
             Log.d(TAG, "syncFirestoreToRoom cancelled.")
             throw ce
         } catch (e: Exception) {
-            Log.e(TAG, "Error syncing Firestore to Room", e)
-            val errorMsg = e.message ?: "เกิดข้อผิดพลาดในการดึงข้อมูลจาก Firestore"
+            Log.e(TAG, "Error syncing Firestore to Room: ${e.message}")
+            val errorMsg = formatFirestoreError(e)
             _syncState.value = SyncState.Error(errorMsg, e)
             Result.failure(e)
         }

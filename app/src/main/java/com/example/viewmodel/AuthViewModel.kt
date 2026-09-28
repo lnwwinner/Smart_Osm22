@@ -45,6 +45,19 @@ class AuthViewModel(
         _uiState.value = AuthUiState.Idle
     }
 
+    fun signInWithGoogleAccount(context: Context, email: String = "gigatvthai@gmail.com", displayName: String = "ผู้สำรวจ อสม. (Google Account)") {
+        _uiState.value = AuthUiState.Loading("กำลังเข้าสู่ระบบด้วยบัญชี Google ($email)...")
+        val result = authManager.signInWithGoogleAccount(context, email, displayName)
+        result.fold(
+            onSuccess = { profile ->
+                _uiState.value = AuthUiState.Success(profile, "เข้าสู่ระบบด้วยบัญชี Google ($email) สำเร็จ")
+            },
+            onFailure = { error ->
+                _uiState.value = AuthUiState.Error(error.message ?: "เข้าสู่ระบบบัญชี Google ไม่สำเร็จ", error)
+            }
+        )
+    }
+
     fun signInWithGoogleTest(context: Context, email: String = "surveyor@smartosm.org") {
         _uiState.value = AuthUiState.Loading("กำลังเข้าสู่ระบบบัญชีทดสอบ Google...")
         val result = authManager.signInWithGoogleTest(context, email)

@@ -33,7 +33,7 @@ class DiagnosticViewModel(
 
     fun runDiagnostic(context: Context) {
         if (firestore == null) {
-            _state.value = _state.value.copy(error = "Firebase is not configured.")
+            _state.value = _state.value.copy(error = "ระบบ Cloud (Firebase) ยังไม่ได้เชื่อมต่อในระบบนี้ (ใช้งานฐานข้อมูลภายใน Room ได้ปกติ)")
             return
         }
 
@@ -41,6 +41,16 @@ class DiagnosticViewModel(
             _state.value = DiagnosticResult(isLoading = true)
 
             try {
+                // Ensure Firebase Auth session before querying
+                try {
+                    val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                    if (auth.currentUser == null) {
+                        auth.signInAnonymously().await()
+                    }
+                } catch (authEx: Exception) {
+                    Log.d("DiagnosticVM", "Anonymous auth note: ${authEx.message}")
+                }
+
                 // Get the surveyor's active villageNo for regional query partitioning
                 val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
                 val activeVillageNo = prefs.getString("surveyor_village_no", "8") ?: "8"
@@ -79,7 +89,12 @@ class DiagnosticViewModel(
                     isLoading = false
                 )
             } catch (e: Exception) {
-                _state.value = DiagnosticResult(error = e.message, isLoading = false)
+                val errorMsg = if (e.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true) {
+                    "สิทธิ์การเข้าถึง Cloud Firestore ถูกปฏิเสธ (PERMISSION_DENIED): โปรดตรวจสอบ Firebase Security Rules หรือเข้าสู่ระบบ Google (ข้อมูลในเครื่อง Room Database ปลอดภัยและใช้งานได้ปกติ)"
+                } else {
+                    e.message ?: "เกิดข้อผิดพลาดในการตรวจสอบข้อมูล"
+                }
+                _state.value = DiagnosticResult(error = errorMsg, isLoading = false)
             }
         }
     }

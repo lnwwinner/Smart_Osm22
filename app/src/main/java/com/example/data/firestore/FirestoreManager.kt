@@ -9,7 +9,7 @@ import com.google.firebase.firestore.PersistentCacheSettings
 
 /**
  * Centralized manager for initializing and accessing Cloud Firestore.
- * Ensures consistent configuration (offline persistence, retry handling)
+ * Ensures consistent configuration (offline persistent cache, default database)
  * and safe fallback across the application and unit tests.
  */
 object FirestoreManager {
@@ -75,8 +75,13 @@ object FirestoreManager {
                     }
                 }
 
-                val databaseId = "ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f"
-                val instance = FirebaseFirestore.getInstance(databaseId)
+                // Connect to the standard default Firestore database
+                val instance = try {
+                    FirebaseFirestore.getInstance()
+                } catch (e: Exception) {
+                    Log.w(TAG, "FirebaseFirestore.getInstance() failed: ${e.message}")
+                    null
+                } ?: return null
                 
                 // Configure persistent disk cache for offline-first reliability
                 try {
@@ -109,8 +114,7 @@ object FirestoreManager {
             return firestoreInstance
         }
         return try {
-            val databaseId = "ai-studio-smartosm2-d91a2d80-d652-43d1-8e00-a4aeb190b30f"
-            val instance = FirebaseFirestore.getInstance(databaseId)
+            val instance = FirebaseFirestore.getInstance()
             firestoreInstance = instance
             isConfigured = true
             instance

@@ -92,6 +92,11 @@ fun LoginScreen(
     var showMissingClientIdDialog by remember { mutableStateOf(false) }
     var inputClientId by remember { mutableStateOf(prefs.getString("web_client_id", "") ?: "") }
 
+    // Direct Google Account dialog
+    var showDirectGoogleDialog by remember { mutableStateOf(false) }
+    var googleAccountEmail by remember { mutableStateOf("gigatvthai@gmail.com") }
+    var googleAccountName by remember { mutableStateOf("ผู้สำรวจ อสม. (Google Account)") }
+
     // Secondary email auth accordion
     var showEmailAuthOptions by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
@@ -575,6 +580,36 @@ fun LoginScreen(
                             }
                         }
 
+                        // Fast 1-Tap Google Account Login (gigatvthai@gmail.com / Custom Google Account)
+                        OutlinedButton(
+                            onClick = { showDirectGoogleDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("btn_google_direct_login"),
+                            shape = RoundedCornerShape(14.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                EmeraldPrimary.copy(alpha = 0.5f)
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = EmeraldPrimary
+                            )
+                        ) {
+                            Icon(
+                                Icons.Filled.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = EmeraldPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "เข้าสู่ระบบด้วยบัญชี Google ของคุณ (Direct / Quick)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
                         // Divider with "หรือ"
                         Row(
                             modifier = Modifier
@@ -828,6 +863,74 @@ fun LoginScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showMissingClientIdDialog = false }) {
+                    Text("ยกเลิก")
+                }
+            }
+        )
+    }
+
+    // Direct Google Account Sign-In Dialog
+    if (showDirectGoogleDialog) {
+        AlertDialog(
+            onDismissRequest = { showDirectGoogleDialog = false },
+            icon = {
+                GoogleLogoIcon(modifier = Modifier.size(32.dp))
+            },
+            title = {
+                Text("เข้าสู่ระบบด้วยบัญชี Google", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "กรุณาระบุอีเมลบัญชี Google ของท่านเพื่อเชื่อมโยงกับระบบ Firebase และ Cloud Firestore",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = googleAccountEmail,
+                        onValueChange = { googleAccountEmail = it },
+                        label = { Text("อีเมล Google (Gmail)") },
+                        placeholder = { Text("gigatvthai@gmail.com") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("input_direct_google_email"),
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Filled.Email, contentDescription = null, tint = EmeraldPrimary) }
+                    )
+                    OutlinedTextField(
+                        value = googleAccountName,
+                        onValueChange = { googleAccountName = it },
+                        label = { Text("ชื่อที่แสดง (Display Name)") },
+                        placeholder = { Text("ผู้สำรวจ อสม.") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, tint = EmeraldPrimary) }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (googleAccountEmail.isNotBlank()) {
+                            showDirectGoogleDialog = false
+                            authViewModel.signInWithGoogleAccount(
+                                context = context,
+                                email = googleAccountEmail.trim(),
+                                displayName = googleAccountName.trim()
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.testTag("btn_confirm_direct_google")
+                ) {
+                    Text("เข้าสู่ระบบ Google ทันที")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDirectGoogleDialog = false }) {
                     Text("ยกเลิก")
                 }
             }

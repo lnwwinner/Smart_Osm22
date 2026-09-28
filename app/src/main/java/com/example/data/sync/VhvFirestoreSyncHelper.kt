@@ -32,9 +32,34 @@ class VhvFirestoreSyncHelper(
     private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
     val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
 
+    private suspend fun ensureAuth() {
+        try {
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            if (auth.currentUser == null) {
+                auth.signInAnonymously().await()
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "FirebaseAuth ensureAuth note: ${e.message}")
+        }
+    }
+
+    private fun formatFirestoreError(e: Throwable): String {
+        val msg = e.message ?: ""
+        return when {
+            msg.contains("PERMISSION_DENIED", ignoreCase = true) -> {
+                "สิทธิ์การเข้าถึง Cloud Firestore ถูกปฏิเสธ (PERMISSION_DENIED): โปรดตรวจสอบ Firebase Security Rules (ระบบใช้งานข้อมูลในเครื่อง Room ได้ตามปกติ)"
+            }
+            msg.contains("UNAVAILABLE", ignoreCase = true) -> {
+                "ไม่สามารถเชื่อมต่อ Cloud ได้ในขณะนี้: ข้อมูลถูกบันทึกในเครื่อง (Room Database) เรียบร้อยแล้ว"
+            }
+            else -> msg.ifBlank { "เกิดข้อผิดพลาดในการเชื่อมต่อ Cloud Firestore" }
+        }
+    }
+
     suspend fun syncOsmData(): Result<SyncResult> = withContext(Dispatchers.IO) {
         _syncState.value = SyncState.Syncing("กำลังซิงค์ข้อมูล อสม. กับระบบ Cloud...")
         try {
+            ensureAuth()
             val firestore = firestoreProvider()
                 ?: return@withContext Result.failure(IllegalStateException("Firestore is not available"))
 
@@ -151,7 +176,8 @@ class VhvFirestoreSyncHelper(
             throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync VHV OSM data with Firestore: ${e.localizedMessage}")
-            val errorState = SyncState.Error("เกิดข้อผิดพลาดในการซิงค์ข้อมูล อสม.: ${e.localizedMessage}", e)
+            val errorMsg = formatFirestoreError(e)
+            val errorState = SyncState.Error(errorMsg, e)
             _syncState.value = errorState
             Result.failure(e)
         }

@@ -304,7 +304,8 @@ fun AppNavigation(
                         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
                             return DiagnosticViewModel(repository, firestore) as T
                         }
-                    })
+                    }),
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable("cloud_sync") {
