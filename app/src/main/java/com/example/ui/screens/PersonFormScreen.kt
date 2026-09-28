@@ -51,6 +51,9 @@ fun PersonFormScreen(
     var personStatus by remember { mutableStateOf(com.example.data.PersonStatus.ALIVE) }
     var dataStatus by remember { mutableStateOf(com.example.data.DataStatus.VERIFIED) }
     var isBirthYearOnly by remember { mutableStateOf(false) }
+    var phoneNumber by remember { mutableStateOf("") }
+    var maritalStatus by remember { mutableStateOf("") }
+    var healthInsurance by remember { mutableStateOf("") }
 
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(
@@ -69,6 +72,9 @@ fun PersonFormScreen(
                 personStatus = it.personStatus
                 dataStatus = it.dataStatus
                 isBirthYearOnly = it.isBirthYearOnly
+                phoneNumber = it.phoneNumber ?: ""
+                maritalStatus = it.maritalStatus ?: ""
+                healthInsurance = it.healthInsurance ?: ""
             }
             isLoading = false
         }
@@ -242,6 +248,29 @@ fun PersonFormScreen(
 
                 // Section 2: Status
                 FormSectionCard(title = "รายละเอียดและสถานะ") {
+                    OutlinedTextField(
+                        value = phoneNumber,
+                        onValueChange = { phoneNumber = it },
+                        label = { Text("เบอร์โทรศัพท์") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        singleLine = true
+                    )
+
+                    DropdownMenuField(
+                        label = "สถานะภาพ",
+                        options = listOf("โสด", "สมรส", "หม้าย", "หย่าร้าง", "แยกกันอยู่"),
+                        selectedOption = maritalStatus,
+                        onOptionSelected = { maritalStatus = it }
+                    )
+
+                    DropdownMenuField(
+                        label = "สิทธิการรักษา",
+                        options = listOf("สิทธิบัตรทอง (30 บาท)", "สิทธิประกันสังคม", "สิทธิข้าราชการ", "สิทธิว่าง/ไม่มีสิทธิ", "อื่นๆ"),
+                        selectedOption = healthInsurance,
+                        onOptionSelected = { healthInsurance = it }
+                    )
+
                     DropdownMenuField(
                         label = "สถานะในบ้าน",
                         options = listOf("เจ้าบ้าน", "ผู้อาศัย"),
@@ -295,7 +324,10 @@ fun PersonFormScreen(
                                     isBirthYearOnly = isBirthYearOnly,
                                     houseStatus = houseStatus,
                                     personStatus = personStatus,
-                                    dataStatus = dataStatus
+                                    dataStatus = dataStatus,
+                                    phoneNumber = phoneNumber.trim().ifBlank { null },
+                                    maritalStatus = maritalStatus.trim().ifBlank { null },
+                                    healthInsurance = healthInsurance.trim().ifBlank { null }
                                 )
                                 if (personId == -1L) {
                                     viewModel.insert(person)

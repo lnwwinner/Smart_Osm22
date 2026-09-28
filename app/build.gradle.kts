@@ -135,6 +135,8 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.androidx.biometric)
   implementation(libs.androidx.work.runtime.ktx)
+  implementation(libs.androidx.glance.appwidget)
+  implementation(libs.androidx.glance.material3)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)

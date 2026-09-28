@@ -210,6 +210,14 @@ fun HouseDetailScreen(
                                         color = Color.White,
                                         fontWeight = FontWeight.ExtraBold
                                     )
+                                    if (household.houseId != null) {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            "(${household.houseId})",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White.copy(alpha = 0.7f)
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Surface(
                                         color = if (household.dataStatus == DataStatus.VERIFIED) 
@@ -453,6 +461,20 @@ fun HouseDetailScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+
+                                if (person.phoneNumber != null || person.maritalStatus != null || person.healthInsurance != null) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = listOfNotNull(
+                                            person.phoneNumber?.let { "โทร: $it" },
+                                            person.maritalStatus,
+                                            person.healthInsurance
+                                        ).joinToString(" | "),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = EmeraldPrimary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                                 
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Row(

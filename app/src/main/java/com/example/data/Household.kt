@@ -19,6 +19,7 @@ data class Household(
     val subdistrict: String = "",
     val district: String = "",
     val province: String = "",
+    val houseId: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
     val locationAccuracy: Float? = null,

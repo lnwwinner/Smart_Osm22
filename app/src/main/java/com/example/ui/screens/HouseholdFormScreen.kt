@@ -54,6 +54,7 @@ fun HouseholdFormScreen(
     val scrollState = rememberScrollState()
     
     var houseNo by remember { mutableStateOf("") }
+    var houseId by remember { mutableStateOf("") }
     var villageNo by remember { mutableStateOf("") }
     var villageName by remember { mutableStateOf("") }
     var subdistrict by remember { mutableStateOf("") }
@@ -100,6 +101,7 @@ fun HouseholdFormScreen(
             val household = viewModel.getHouseholdById(householdId)
             household?.let {
                 houseNo = it.houseNo
+                houseId = it.houseId ?: ""
                 villageNo = it.villageNo
                 villageName = villageOptions.find { opt -> opt.first == it.villageNo }?.second ?: "หมู่ที่ ${it.villageNo}"
                 subdistrict = it.subdistrict
@@ -169,6 +171,7 @@ fun HouseholdFormScreen(
                         val household = Household(
                             id = if (householdId == -1L) 0 else householdId,
                             houseNo = houseNo.trim(),
+                            houseId = houseId.trim().ifBlank { null },
                             villageNo = villageNo.trim(),
                             subdistrict = subdistrict.trim(),
                             district = district.trim(),
@@ -360,42 +363,53 @@ fun HouseholdFormScreen(
                             shape = RoundedCornerShape(12.dp)
                         )
 
-                        var expanded by remember { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(
+                        OutlinedTextField(
+                            value = houseId,
+                            onValueChange = { houseId = it },
+                            label = { Text("รหัสประจำบ้าน") },
+                            placeholder = { Text("11 หลัก") },
+                            leadingIcon = { Icon(Icons.Filled.Numbers, contentDescription = null, tint = EmeraldPrimary) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+                    var expanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = villageName,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("หมู่ที่ / หมู่บ้าน") },
+                            leadingIcon = { Icon(Icons.Filled.Map, contentDescription = null, tint = EmeraldPrimary) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        ExposedDropdownMenu(
                             expanded = expanded,
-                            onExpandedChange = { expanded = !expanded },
-                            modifier = Modifier.weight(1.2f)
+                            onDismissRequest = { expanded = false }
                         ) {
-                            OutlinedTextField(
-                                value = villageName,
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("หมู่ที่ / หมู่บ้าน") },
-                                leadingIcon = { Icon(Icons.Filled.Map, contentDescription = null, tint = EmeraldPrimary) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth(),
-                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            ExposedDropdownMenu(
-                                expanded = expanded,
-                                onDismissRequest = { expanded = false }
-                            ) {
-                                villageOptions.forEach { (no, name) ->
-                                    DropdownMenuItem(
-                                        text = { Text(name) },
-                                        onClick = {
-                                            villageNo = no
-                                            villageName = name
-                                            expanded = false
-                                            
-                                            // Auto-fill address details for the subdistrict if empty
-                                            if (subdistrict.isBlank()) subdistrict = "ต.ป่าขะ"
-                                            if (district.isBlank()) district = "อ.บ้านนา"
-                                            if (province.isBlank()) province = "จ.นครนายก"
-                                        }
-                                    )
-                                }
+                            villageOptions.forEach { (no, name) ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        villageNo = no
+                                        villageName = name
+                                        expanded = false
+                                        
+                                        // Auto-fill address details for the subdistrict if empty
+                                        if (subdistrict.isBlank()) subdistrict = "ต.ป่าขะ"
+                                        if (district.isBlank()) district = "อ.บ้านนา"
+                                        if (province.isBlank()) province = "จ.นครนายก"
+                                    }
+                                )
                             }
                         }
                     }

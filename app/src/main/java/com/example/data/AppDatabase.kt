@@ -10,7 +10,7 @@ import android.content.Context
 import com.example.data.vhv.VhvMemberDao
 import com.example.data.vhv.VhvMemberEntity
 
-@Database(entities = [Person::class, Household::class, PersonHistory::class, PopulationEvent::class, HealthScreening::class, VhvMemberEntity::class], version = 11, exportSchema = true)
+@Database(entities = [Person::class, Household::class, PersonHistory::class, PopulationEvent::class, HealthScreening::class, VhvMemberEntity::class], version = 12, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun personDao(): PersonDao
@@ -21,28 +21,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun vhvMemberDao(): VhvMemberDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
-
-        fun getInstance(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = androidx.room.Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "smart_osm_database"
-                )
-                .addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                    MIGRATION_9_10, MIGRATION_10_11
-                )
-                .fallbackToDestructiveMigration()
-                .build()
-                INSTANCE = instance
-                instance
-            }
-        }
-
         val MIGRATION_1_2 = object : Migration(1, 2) { override fun migrate(db: SupportSQLiteDatabase) {} }
         val MIGRATION_2_3 = object : Migration(2, 3) { override fun migrate(db: SupportSQLiteDatabase) {} }
         val MIGRATION_3_4 = object : Migration(3, 4) { override fun migrate(db: SupportSQLiteDatabase) {} }
@@ -212,6 +190,39 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_vhv_members_vhvCardId` ON `vhv_members` (`vhvCardId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_vhv_members_nationalId` ON `vhv_members` (`nationalId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_vhv_members_villageNo` ON `vhv_members` (`villageNo`)")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add houseId to households
+                db.execSQL("ALTER TABLE households ADD COLUMN houseId TEXT")
+                // Add phoneNumber, maritalStatus, healthInsurance to persons
+                db.execSQL("ALTER TABLE persons ADD COLUMN phoneNumber TEXT")
+                db.execSQL("ALTER TABLE persons ADD COLUMN maritalStatus TEXT")
+                db.execSQL("ALTER TABLE persons ADD COLUMN healthInsurance TEXT")
+            }
+        }
+
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getInstance(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = androidx.room.Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "smart_osm_database"
+                )
+                .addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
+                    MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+                    MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12
+                )
+                .fallbackToDestructiveMigration()
+                .build()
+                INSTANCE = instance
+                instance
             }
         }
     }
