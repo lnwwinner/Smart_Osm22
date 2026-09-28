@@ -30,7 +30,6 @@ class GeminiViewModel : ViewModel() {
     private val apiKey = BuildConfig.GEMINI_API_KEY
 
     fun generateHealthAdvice(
-        personName: String,
         age: Int,
         gender: String,
         weightKg: Double,
@@ -50,8 +49,7 @@ class GeminiViewModel : ViewModel() {
             val bmi = if (heightCm > 0) weightKg / ((heightCm / 100.0) * (heightCm / 100.0)) else 0.0
             val prompt = """
                 คุณคือที่ปรึกษาด้านสุขภาพอัจฉริยะ (Smart Health Advisor) สำหรับ อสม. (อาสาสมัครสาธารณสุขประจำหมู่บ้าน)
-                วิเคราะห์ข้อมูลสุขภาพของบุคคลดังนี้:
-                - ชื่อ: $personName
+                วิเคราะห์ข้อมูลสุขภาพเบื้องต้นของบุคคล (ไม่ระบุตัวตน) ดังนี้:
                 - อายุ: $age ปี
                 - เพศ: $gender
                 - น้ำหนัก: $weightKg กก., ส่วนสูง: $heightCm ซม. (BMI: ${"%.2f".format(bmi)})

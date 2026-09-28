@@ -316,7 +316,6 @@ open class AuthManager(
                             "province" to updatedProfile.province,
                             "roleTitle" to updatedProfile.roleTitle,
                             "vhvCardId" to updatedProfile.vhvCardId,
-                            "citizenId" to updatedProfile.citizenId,
                             "healthCenter" to updatedProfile.healthCenter,
                             "updatedAt" to System.currentTimeMillis()
                         )
@@ -374,7 +373,6 @@ open class AuthManager(
                             "province" to profile.province,
                             "roleTitle" to profile.roleTitle,
                             "vhvCardId" to profile.vhvCardId,
-                            "citizenId" to profile.citizenId,
                             "healthCenter" to profile.healthCenter,
                             "updatedAt" to System.currentTimeMillis()
                         )
@@ -414,83 +412,6 @@ open class AuthManager(
 
     open fun isAuthAvailable(): Boolean {
         return firebaseAuth != null || _localProfile != null || _userProfile.value?.isAuthenticated == true
-    }
-
-    /**
-     * Signs in immediately with a specific Google Account profile (e.g. gigatvthai@gmail.com).
-     * Links with Firebase Authentication and synchronizes user profile to Firestore.
-     */
-    open fun signInWithGoogleAccount(
-        context: Context,
-        email: String = "gigatvthai@gmail.com",
-        displayName: String = "ผู้สำรวจ อสม. (Google Account)"
-    ): Result<UserProfile> {
-        val safeEmail = email.trim().ifBlank { "gigatvthai@gmail.com" }
-        val safeName = displayName.trim().ifBlank { safeEmail.substringBefore("@") }
-        val uid = "google:${Math.abs(safeEmail.hashCode())}"
-        
-        setLocalProfile(
-            context = context,
-            uid = uid,
-            email = safeEmail,
-            displayName = safeName,
-            photoUrl = null,
-            provider = "google.com"
-        )
-        val profile = _userProfile.value ?: UserProfile(
-            uid = uid,
-            displayName = safeName,
-            email = safeEmail,
-            providerId = "google.com",
-            providerIds = listOf("google.com"),
-            villageNo = cachedVillageNo,
-            villageName = cachedVillageName,
-            subdistrict = cachedSubdistrict,
-            district = cachedDistrict,
-            province = cachedProvince,
-            roleTitle = cachedRoleTitle
-        )
-        
-        // Sync profile to Firestore
-        try {
-            val firestore = com.example.data.firestore.FirestoreManager.getInstance()
-                ?: try { com.google.firebase.firestore.FirebaseFirestore.getInstance() } catch (e: Exception) { null }
-            if (firestore != null) {
-                val userMap = mapOf(
-                    "uid" to uid,
-                    "displayName" to safeName,
-                    "email" to safeEmail,
-                    "villageNo" to cachedVillageNo,
-                    "villageName" to cachedVillageName,
-                    "subdistrict" to cachedSubdistrict,
-                    "district" to cachedDistrict,
-                    "province" to cachedProvince,
-                    "roleTitle" to cachedRoleTitle,
-                    "provider" to "google.com",
-                    "updatedAt" to System.currentTimeMillis()
-                )
-                firestore.collection("users").document(uid)
-                    .set(userMap, com.google.firebase.firestore.SetOptions.merge())
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Background Firestore sync for Google account skipped: ${e.message}")
-        }
-        
-        Log.i(TAG, "Signed in via Google account: $safeEmail. UID: $uid")
-        return Result.success(profile)
-    }
-
-    /**
-     * Signs in immediately with a test Google Account profile.
-     * Adheres strictly to User Identity architecture: User Identity = "google:<id>"
-     * linked with Area Identity (villageId) and local persistence.
-     */
-    open fun signInWithGoogleTest(
-        context: Context,
-        email: String = "surveyor@smartosm.org",
-        displayName: String = "ผู้สำรวจ อสม. (Google Test)"
-    ): Result<UserProfile> {
-        return signInWithGoogleAccount(context, email, displayName)
     }
 
     /**

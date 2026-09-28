@@ -49,7 +49,26 @@ fun PinLockScreen(
     var isError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     
+    var failedAttempts by remember { mutableIntStateOf(prefs.getInt("pin_failed_attempts", 0)) }
+    var lockoutTime by remember { mutableLongStateOf(prefs.getLong("pin_lockout_until", 0L)) }
+    
     val scope = rememberCoroutineScope()
+
+    val isLockedOut = remember(lockoutTime) {
+        System.currentTimeMillis() < lockoutTime
+    }
+
+    // Update lockout status periodically
+    LaunchedEffect(lockoutTime) {
+        if (isLockedOut) {
+            while (System.currentTimeMillis() < lockoutTime) {
+                delay(1000)
+            }
+            // Lockout ended
+            errorMessage = ""
+            isError = false
+        }
+    }
 
     val canUseBiometric = remember(context) {
         BiometricAuthHelper.isBiometricAvailable(context) && 
@@ -112,18 +131,58 @@ fun PinLockScreen(
     val icon = if (savedPin != null) Icons.Filled.Lock else Icons.Filled.LockOpen
 
     fun handlePinDigit(digit: String) {
+        if (isLockedOut) {
+            val remainingSeconds = ((lockoutTime - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+            errorMessage = "ระบบระงับชั่วคราว: กรุณาลองใหม่ใน $remainingSeconds วินาที"
+            isError = true
+            return
+        }
+
         if (currentPin.length < 6) {
             currentPin += digit
             isError = false
             
             if (currentPin.length == 6) {
                 if (savedPin != null) {
-                    // Verify
-                    if (currentPin == savedPin) {
+                    // Verify hashed PIN
+                    val isValid = if (savedPin.length == 6) {
+                        // Migration: If old PIN was plaintext
+                        currentPin == savedPin
+                    } else {
+                        com.example.util.SecurityUtils.verifyPin(currentPin, savedPin)
+                    }
+
+                    if (isValid) {
+                        // Reset failures on success
+                        failedAttempts = 0
+                        prefs.edit()
+                            .putInt("pin_failed_attempts", 0)
+                            .putLong("pin_lockout_until", 0L)
+                            .apply()
+                        
+                        // Migrate to hashed PIN if it was plaintext
+                        if (savedPin.length == 6) {
+                            prefs.edit().putString("pin", com.example.util.SecurityUtils.hashPin(currentPin)).apply()
+                        }
+                        
                         onUnlock()
                     } else {
+                        failedAttempts++
                         isError = true
-                        errorMessage = "รหัสผ่านไม่ถูกต้อง"
+                        
+                        if (failedAttempts >= 5) {
+                            val newLockoutUntil = System.currentTimeMillis() + (30 * 1000) // 30s lockout
+                            lockoutTime = newLockoutUntil
+                            prefs.edit()
+                                .putInt("pin_failed_attempts", failedAttempts)
+                                .putLong("pin_lockout_until", newLockoutUntil)
+                                .apply()
+                            errorMessage = "ใส่รหัสผิดเกินกำหนด: ระงับการใช้งาน 30 วินาที"
+                        } else {
+                            prefs.edit().putInt("pin_failed_attempts", failedAttempts).apply()
+                            errorMessage = "รหัสผ่านไม่ถูกต้อง (ลองได้อีก ${5 - failedAttempts} ครั้ง)"
+                        }
+                        
                         scope.launch {
                             delay(500)
                             currentPin = ""
@@ -137,7 +196,9 @@ fun PinLockScreen(
                         currentPin = ""
                     } else {
                         if (currentPin == confirmPin) {
-                            prefs.edit().putString("pin", currentPin).apply()
+                            // Store hashed PIN
+                            val hashedPin = com.example.util.SecurityUtils.hashPin(currentPin)
+                            prefs.edit().putString("pin", hashedPin).apply()
                             onUnlock()
                         } else {
                             isError = true

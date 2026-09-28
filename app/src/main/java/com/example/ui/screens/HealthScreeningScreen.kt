@@ -442,7 +442,6 @@ fun HealthScreeningScreen(
                                             } else 0
                                             
                                             geminiViewModel.generateHealthAdvice(
-                                                personName = p.fullName,
                                                 age = age,
                                                 gender = p.gender.name,
                                                 weightKg = latest.weight ?: 0.0,

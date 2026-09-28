@@ -89,17 +89,8 @@ jobs:
             echo "KEYSTORE_PATH=${{ github.workspace }}/my-upload-key.jks" >> $GITHUB_ENV
             echo "✓ Release keystore already exists in workspace"
           else
-            echo "Generating fallback signing keystore for release evaluation..."
-            keytool -genkey -v -keystore my-upload-key.jks \
-              -keyalg RSA -keysize 2048 \
-              -validity 10000 -alias upload \
-              -storepass android -keypass android \
-              -dname "CN=Android Release,O=SmartOSM,C=TH"
-            echo "KEYSTORE_PATH=${{ github.workspace }}/my-upload-key.jks" >> $GITHUB_ENV
-            echo "STORE_PASSWORD=android" >> $GITHUB_ENV
-            echo "KEY_ALIAS=upload" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=android" >> $GITHUB_ENV
-            echo "✓ Fallback signing configuration registered"
+            echo "❌ ERROR: Release keystore not found in workspace."
+            exit 1
           fi
 
       - name: Run Unit Tests
@@ -108,7 +99,6 @@ jobs:
           gradle testDebugUnitTest --stacktrace --no-daemon
         env:
           MAPS_API_KEY: placeholder_maps_api_key_ci_build
-        continue-on-error: true
 
       - name: Build Debug APK
         if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'debug'
@@ -121,7 +111,11 @@ jobs:
       - name: Build Release APK
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_type == 'release'
         run: |
-          echo "Assembling release app build with safe signing configurations..."
+          if [ -z "$KEYSTORE_PATH" ]; then
+            echo "❌ ERROR: Release keystore credentials not found. Release build aborted for security."
+            exit 1
+          fi
+          echo "Assembling secure release app build..."
           gradle assembleRelease --stacktrace --no-daemon
         env:
           MAPS_API_KEY: placeholder_maps_api_key_ci_build

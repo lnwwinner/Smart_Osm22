@@ -45,32 +45,6 @@ class AuthViewModel(
         _uiState.value = AuthUiState.Idle
     }
 
-    fun signInWithGoogleAccount(context: Context, email: String = "gigatvthai@gmail.com", displayName: String = "ผู้สำรวจ อสม. (Google Account)") {
-        _uiState.value = AuthUiState.Loading("กำลังเข้าสู่ระบบด้วยบัญชี Google ($email)...")
-        val result = authManager.signInWithGoogleAccount(context, email, displayName)
-        result.fold(
-            onSuccess = { profile ->
-                _uiState.value = AuthUiState.Success(profile, "เข้าสู่ระบบด้วยบัญชี Google ($email) สำเร็จ")
-            },
-            onFailure = { error ->
-                _uiState.value = AuthUiState.Error(error.message ?: "เข้าสู่ระบบบัญชี Google ไม่สำเร็จ", error)
-            }
-        )
-    }
-
-    fun signInWithGoogleTest(context: Context, email: String = "surveyor@smartosm.org") {
-        _uiState.value = AuthUiState.Loading("กำลังเข้าสู่ระบบบัญชีทดสอบ Google...")
-        val result = authManager.signInWithGoogleTest(context, email)
-        result.fold(
-            onSuccess = { profile ->
-                _uiState.value = AuthUiState.Success(profile, "เข้าสู่ระบบบัญชี Google ทดสอบสำเร็จ")
-            },
-            onFailure = { error ->
-                _uiState.value = AuthUiState.Error(error.message ?: "เข้าสู่ระบบทดสอบไม่สำเร็จ", error)
-            }
-        )
-    }
-
     fun signInWithGoogle(context: Context, customClientId: String? = null) {
         _uiState.value = AuthUiState.Loading("กำลังเชื่อมต่อ Google Sign-In ผ่าน Credential Manager...")
         viewModelScope.launch {
@@ -84,7 +58,7 @@ class AuthViewModel(
                         error is androidx.credentials.exceptions.GetCredentialCancellationException ->
                             "ยกเลิกการเข้าสู่ระบบด้วย Google"
                         error.message?.contains("No credentials available", ignoreCase = true) == true ->
-                            "ไม่พบบัญชี Google ที่พร้อมใช้งานบนอุปกรณ์นี้ (กรุณาลงชื่อเข้าใช้ Google ในการตั้งค่าโทรศัพท์ หรือใช้บัญชีผู้สำรวจด้านล่าง)"
+                            "ไม่พบบัญชี Google ที่พร้อมใช้งานบนอุปกรณ์นี้ (กรุณาลงชื่อเข้าใช้ Google ในการตั้งค่าโทรศัพท์)"
                         error.message?.contains("MISSING_WEB_CLIENT_ID") == true ->
                             "MISSING_WEB_CLIENT_ID"
                         error.message?.contains("Web Client ID", ignoreCase = true) == true ->
