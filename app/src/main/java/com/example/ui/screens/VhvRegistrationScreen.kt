@@ -68,8 +68,8 @@ fun VhvRegistrationScreen(
     var citizenId by remember(userProfile) { mutableStateOf(userProfile?.citizenId ?: "") }
     var healthCenter by remember(userProfile) { mutableStateOf(userProfile?.healthCenter ?: "รพ.สต.ป่าขะ") }
     var phoneNumber by remember(userProfile) { mutableStateOf(userProfile?.phoneNumber ?: "") }
-    var villageNo by remember(userProfile) { mutableStateOf(userProfile?.villageNo ?: "7") }
-    var villageName by remember(userProfile) { mutableStateOf(userProfile?.villageName ?: "หมู่ 7 บ้านกร่างประตูวัง") }
+    var villageNo by remember(userProfile) { mutableStateOf(userProfile?.villageNo ?: "8") }
+    var villageName by remember(userProfile) { mutableStateOf(userProfile?.villageName ?: "หมู่ 8 บ้านคลองส่ง") }
     var subdistrict by remember(userProfile) { mutableStateOf(userProfile?.subdistrict ?: "ต.ป่าขะ") }
     var district by remember(userProfile) { mutableStateOf(userProfile?.district ?: "อ.บ้านนา") }
     var province by remember(userProfile) { mutableStateOf(userProfile?.province ?: "จ.นครนายก") }

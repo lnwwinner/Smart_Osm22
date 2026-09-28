@@ -279,13 +279,6 @@ fun AppNavigation(
                     onNavigateToVhvRegistration = { navController.navigate("vhv_registration") }
                 )
             }
-            composable("vhv_registration") {
-                VhvRegistrationScreen(
-                    authViewModel = authViewModel,
-                    onRegistrationSuccess = { navController.popBackStack() },
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
             composable("diagnostic") {
                 DiagnosticScreen(
                     viewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {

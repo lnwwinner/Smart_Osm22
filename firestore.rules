@@ -27,7 +27,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && request.auth.uid == uid;
       allow create: if isAuthenticated() && request.auth.uid == uid;
       allow update: if isAuthenticated() && request.auth.uid == uid 
-                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['villageNo', 'roleTitle']));
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roleTitle']));
     }
 
     // 2. Households collection: Strictly filtered by village access

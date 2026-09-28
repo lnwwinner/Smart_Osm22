@@ -148,6 +148,37 @@ open class RoomFirestoreSyncHelper(
     // ROOM -> FIRESTORE (Upload / Persist)
     // =========================================================================
 
+    private suspend fun ensureProfileSyncedOnFirestore(activeVillageNo: String) {
+        try {
+            val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+            val user = auth.currentUser ?: return
+            val firestore = getFirestore()
+            
+            // SECURITY: Establish user identity on Cloud BEFORE performing data sync
+            // This satisfies the hasVillageAccess(villageNo) check in Firestore Rules
+            val profileDoc = firestore.collection("users").document(user.uid)
+            
+            // We use a safe set with merge to ensure the document exists and has the correct villageNo
+            // without necessarily overwriting other fields if they exist.
+            val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            val userMap = mutableMapOf(
+                "uid" to user.uid,
+                "villageNo" to activeVillageNo,
+                "updatedAt" to System.currentTimeMillis()
+            )
+            
+            // Add basic display name if missing locally
+            val name = user.displayName ?: prefs.getString("local_user_name", null)
+            if (name != null) userMap["displayName"] = name
+            
+            Log.d(TAG, "Ensuring cloud profile exists for UID: ${user.uid} with villageNo: $activeVillageNo")
+            profileDoc.set(userMap, SetOptions.merge()).await()
+        } catch (e: Exception) {
+            Log.w(TAG, "Profile assurance note: ${e.message}")
+            // We continue anyway; if it truly failed, the subsequent sync queries will catch the PERMISSION_DENIED
+        }
+    }
+
     /**
      * Uploads all local Room households and registered citizens to Cloud Firestore,
      * skipping any records that have deletion tombstones.
@@ -178,6 +209,9 @@ open class RoomFirestoreSyncHelper(
                 _syncState.value = SyncState.Error(err.message ?: "", err)
                 return@withContext Result.failure(err)
             }
+
+            // Ensure profile exists on Firestore for rules to pass
+            ensureProfileSyncedOnFirestore(activeVillageNo)
 
             // Fetch tombstones to prevent re-uploading deleted records
             // Must be filtered by villageNo to satisfy security rules
@@ -276,12 +310,22 @@ open class RoomFirestoreSyncHelper(
             ensureAuth()
             val firestore = getFirestore()
             
+            val activeVillageNo = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                .getString("surveyor_village_no", null) ?: return@withContext Result.failure(IllegalStateException("กรุณาระบุพื้นที่รับผิดชอบก่อนซิงค์"))
+
+            // Ensure profile exists on Firestore for rules to pass
+            ensureProfileSyncedOnFirestore(activeVillageNo)
+
             // Check if household has been tombstoned
-            val hTombstoneRef = firestore.collection(COLLECTION_TOMBSTONES)
-                .document("household_${household.householdUuid}")
+            // Must use query with villageNo to satisfy security rules
+            val hTombstoneQuery = firestore.collection(COLLECTION_TOMBSTONES)
+                .whereEqualTo("type", "household")
+                .whereEqualTo("uuid", household.householdUuid)
+                .whereEqualTo("villageNo", activeVillageNo)
                 .get().await()
-            if (hTombstoneRef.exists()) {
-                return@withContext Result.failure(IllegalStateException("Cannot sync: Household ${household.householdUuid} was deleted on Cloud."))
+            
+            if (!hTombstoneQuery.isEmpty) {
+                return@withContext Result.failure(IllegalStateException("ไม่สามารถซิงค์ได้: ครัวเรือนนี้ถูกลบออกจากระบบ Cloud แล้ว"))
             }
 
             // Filter out tombstoned persons
@@ -289,6 +333,7 @@ open class RoomFirestoreSyncHelper(
             if (persons.isNotEmpty()) {
                 for (chunk in persons.map { it.personUuid }.chunked(30)) {
                     val docs = firestore.collection(COLLECTION_TOMBSTONES)
+                        .whereEqualTo("villageNo", activeVillageNo)
                         .whereIn("uuid", chunk)
                         .get().await()
                     for (doc in docs.documents) {
@@ -329,9 +374,14 @@ open class RoomFirestoreSyncHelper(
 
     @androidx.annotation.VisibleForTesting
     internal open suspend fun checkTombstoneExists(uuid: String, type: String): Boolean {
-        return getFirestore().collection(COLLECTION_TOMBSTONES)
-            .document("${type}_${uuid}")
-            .get().await().exists()
+        val activeVillageNo = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            .getString("surveyor_village_no", null) ?: ""
+        
+        return !getFirestore().collection(COLLECTION_TOMBSTONES)
+            .whereEqualTo("type", type)
+            .whereEqualTo("uuid", uuid)
+            .whereEqualTo("villageNo", activeVillageNo)
+            .get().await().isEmpty
     }
 
     @androidx.annotation.VisibleForTesting
@@ -352,6 +402,12 @@ open class RoomFirestoreSyncHelper(
     ): Result<SyncResult> = withContext(Dispatchers.IO) {
         try {
             ensureAuth()
+            val activeVillageNo = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                .getString("surveyor_village_no", null) ?: return@withContext Result.failure(IllegalStateException("กรุณาระบุพื้นที่รับผิดชอบก่อนซิงค์ (Missing activeVillageNo)"))
+
+            // Ensure profile exists on Firestore for rules to pass
+            ensureProfileSyncedOnFirestore(activeVillageNo)
+
             // Check if person has been tombstoned
             if (checkTombstoneExists(person.personUuid, "person")) {
                 return@withContext Result.failure(IllegalStateException("Cannot sync: Person ${person.personUuid} was deleted on Cloud."))
@@ -397,6 +453,10 @@ open class RoomFirestoreSyncHelper(
             // Fetch villageNo for regional tombstone rules
             val household = repository.getHouseholdByUuid(householdUuid)
             val villageNo = household?.villageNo ?: ""
+            
+            if (villageNo.isNotBlank()) {
+                ensureProfileSyncedOnFirestore(villageNo)
+            }
 
             // 1. Household tombstone and delete
             val hTombstoneRef = firestore.collection(COLLECTION_TOMBSTONES).document("household_$householdUuid")
@@ -437,6 +497,10 @@ open class RoomFirestoreSyncHelper(
             val person = repository.getPersonByUuid(personUuid)
             val household = person?.let { repository.getHouseholdById(it.householdId) }
             val villageNo = household?.villageNo ?: ""
+            
+            if (villageNo.isNotBlank()) {
+                ensureProfileSyncedOnFirestore(villageNo)
+            }
 
             val pRef = firestore.collection(COLLECTION_PERSONS).document(personUuid)
             batch.delete(pRef)
@@ -488,6 +552,9 @@ open class RoomFirestoreSyncHelper(
                 _syncState.value = SyncState.Error(err.message ?: "", err)
                 return@withContext Result.failure(err)
             }
+
+            // Ensure profile exists on Firestore for rules to pass
+            ensureProfileSyncedOnFirestore(activeVillageNo)
 
             // Fetch tombstones
             // Must be filtered by villageNo to satisfy security rules

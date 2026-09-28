@@ -62,7 +62,7 @@ open class AuthManager(
         get() = _currentUser.value?.uid ?: _localProfile?.uid ?: _userProfile.value?.uid
 
     private var cachedVillageNo: String = "8"
-    private var cachedVillageName: String = "หมู่ 8 บ้านกร่างประดู่วัง"
+    private var cachedVillageName: String = "หมู่ 8 บ้านคลองส่ง"
     private var cachedSubdistrict: String = "ต.ป่าขะ"
     private var cachedDistrict: String = "อ.บ้านนา"
     private var cachedProvince: String = "จ.นครนายก"
@@ -112,7 +112,7 @@ open class AuthManager(
             ensureFirebase(context)
             val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
             cachedVillageNo = prefs.getString("surveyor_village_no", "8") ?: "8"
-            cachedVillageName = prefs.getString("surveyor_village_name", "หมู่ 8 บ้านกร่างประดู่วัง") ?: "หมู่ 8 บ้านกร่างประดู่วัง"
+            cachedVillageName = prefs.getString("surveyor_village_name", "หมู่ 8 บ้านคลองส่ง") ?: "หมู่ 8 บ้านคลองส่ง"
             cachedSubdistrict = prefs.getString("surveyor_subdistrict", "ต.ป่าขะ") ?: "ต.ป่าขะ"
             cachedDistrict = prefs.getString("surveyor_district", "อ.บ้านนา") ?: "อ.บ้านนา"
             cachedProvince = prefs.getString("surveyor_province", "จ.นครนายก") ?: "จ.นครนายก"
@@ -235,7 +235,7 @@ open class AuthManager(
         try {
             val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
             cachedVillageNo = villageNo.trim().ifBlank { "8" }
-            cachedVillageName = villageName.trim().ifBlank { "หมู่ 8 บ้านกร่างประดู่วัง" }
+            cachedVillageName = villageName.trim().ifBlank { "หมู่ 8 บ้านคลองส่ง" }
             cachedSubdistrict = subdistrict.trim().ifBlank { "ต.ป่าขะ" }
             cachedDistrict = district.trim().ifBlank { "อ.บ้านนา" }
             cachedProvince = province.trim().ifBlank { "จ.นครนายก" }
