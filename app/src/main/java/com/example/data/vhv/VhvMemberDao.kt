@@ -9,6 +9,9 @@ interface VhvMemberDao {
     @Query("SELECT * FROM vhv_members ORDER BY CAST(villageNo AS INTEGER) ASC, fullName ASC")
     fun getAllVhvMembersFlow(): Flow<List<VhvMemberEntity>>
 
+    @Query("SELECT * FROM vhv_members ORDER BY CAST(villageNo AS INTEGER) ASC, fullName ASC")
+    suspend fun getAllVhvMembers(): List<VhvMemberEntity>
+
     @Query("SELECT * FROM vhv_members WHERE villageNo = :villageNo ORDER BY fullName ASC")
     fun getVhvMembersByVillageFlow(villageNo: String): Flow<List<VhvMemberEntity>>
 

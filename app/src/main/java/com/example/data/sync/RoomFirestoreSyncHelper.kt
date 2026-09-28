@@ -14,6 +14,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,6 +76,8 @@ open class RoomFirestoreSyncHelper(
             } else {
                 null
             }
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (e: Exception) {
             Log.w(TAG, "FirebaseApp is not initialized: ${e.message}")
             null
@@ -120,11 +123,6 @@ open class RoomFirestoreSyncHelper(
     // ROOM -> FIRESTORE (Upload / Persist)
     // =========================================================================
 
-    /**
-     * Uploads all local Room households and registered citizens to Cloud Firestore,
-     * skipping any records that have deletion tombstones.
-     * Uses batch writes for high efficiency and atomic updates, respecting Firestore batch limits (max 500).
-     */
     /**
      * Uploads all local Room households and registered citizens to Cloud Firestore,
      * skipping any records that have deletion tombstones.
@@ -215,6 +213,9 @@ open class RoomFirestoreSyncHelper(
             )
             _syncState.value = SyncState.Success(result)
             Result.success(result)
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "syncRoomToFirestore cancelled.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing Room to Firestore", e)
             val errorMsg = e.message ?: "เกิดข้อผิดพลาดในการซิงค์ข้อมูลกับ Firestore"
@@ -274,6 +275,9 @@ open class RoomFirestoreSyncHelper(
                 message = "บันทึกครัวเรือนเลขที่ ${household.houseNo} ไปยัง Firestore เรียบร้อย"
             )
             Result.success(result)
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "syncHouseholdToFirestore cancelled.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync household ${household.houseNo}", e)
             Result.failure(e)
@@ -322,6 +326,9 @@ open class RoomFirestoreSyncHelper(
                 message = "บันทึกข้อมูล ${person.fullName} ไปยัง Firestore เรียบร้อย"
             )
             Result.success(result)
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "syncPersonToFirestore cancelled.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync person ${person.fullName}", e)
             Result.failure(e)
@@ -363,6 +370,9 @@ open class RoomFirestoreSyncHelper(
 
             batch.commit().await()
             Result.success(Unit)
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "deleteHouseholdFromFirestore cancelled.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete household $householdUuid from Firestore", e)
             Result.failure(e)
@@ -389,6 +399,9 @@ open class RoomFirestoreSyncHelper(
 
             batch.commit().await()
             Result.success(Unit)
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "deletePersonFromFirestore cancelled.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete person $personUuid from Firestore", e)
             Result.failure(e)
@@ -511,6 +524,9 @@ open class RoomFirestoreSyncHelper(
             )
             _syncState.value = SyncState.Success(result)
             Result.success(result)
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "syncFirestoreToRoom cancelled.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Error syncing Firestore to Room", e)
             val errorMsg = e.message ?: "เกิดข้อผิดพลาดในการดึงข้อมูลจาก Firestore"
@@ -531,6 +547,9 @@ open class RoomFirestoreSyncHelper(
             }
             val pushResult = syncRoomToFirestore(villageNo)
             pushResult
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "bidirectionalSync cancelled.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Error during bidirectional sync", e)
             Result.failure(e)

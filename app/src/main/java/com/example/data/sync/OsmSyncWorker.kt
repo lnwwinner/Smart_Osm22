@@ -2,12 +2,12 @@ package com.example.data.sync
 
 import android.content.Context
 import android.util.Log
-import androidx.room.Room
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.data.AppDatabase
 import com.example.data.firestore.FirestoreManager
 import com.example.data.vhv.OsmRp00002Data
+import kotlinx.coroutines.CancellationException
 
 /**
  * Background WorkManager worker responsible for syncing Public Health Volunteer (OSM)
@@ -26,6 +26,9 @@ class OsmSyncWorker(
 
     override suspend fun doWork(): Result {
         return try {
+            if (isStopped) {
+                return Result.success()
+            }
             Log.d(TAG, "Starting background sync worker for OSM (Public Health Volunteer) data...")
             val appContext = applicationContext
 
@@ -39,7 +42,6 @@ class OsmSyncWorker(
 
             // Use AppDatabase singleton instance with full migration chain
             val db = AppDatabase.getInstance(appContext)
-
             val vhvMemberDao = db.vhvMemberDao()
 
             // Seed local database if empty
@@ -60,11 +62,14 @@ class OsmSyncWorker(
                 Log.i(TAG, "OSM background sync finished successfully: ${res?.personsSynced} records processed.")
                 Result.success()
             } else {
-                Log.e(TAG, "OSM background sync failed: ${syncResult.exceptionOrNull()?.message}")
+                Log.w(TAG, "OSM background sync non-critical failure: ${syncResult.exceptionOrNull()?.message}")
                 Result.retry()
             }
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "OsmSyncWorker cancelled normally.")
+            throw ce
         } catch (e: Exception) {
-            Log.e(TAG, "Fatal exception in OsmSyncWorker execution", e)
+            Log.e(TAG, "Exception in OsmSyncWorker execution", e)
             Result.retry()
         }
     }

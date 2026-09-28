@@ -1,23 +1,25 @@
 package com.example
 
 import android.os.Bundle
-import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.room.Room
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.firestore.FirebaseFirestore
 import com.example.data.AppDatabase
 import com.example.data.PersonRepository
 import com.example.data.firestore.FirestoreManager
-import com.example.data.firestore.FirestorePopulationRepository
+import com.example.data.sync.HouseholdSyncScheduler
+import com.example.data.sync.OsmSyncScheduler
+import com.example.data.sync.RoomFirestoreSyncHelper
+import com.example.domain.ExcelImportUseCase
+import com.example.ui.DiagnosticViewModel
 import com.example.ui.navigation.AppNavigation
 import com.example.ui.theme.AppThemeProvider
 import com.example.viewmodel.PersonViewModel
@@ -28,27 +30,26 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
 
         // Initialize Firestore with offline cache and retry settings
-        val firestore = FirestoreManager.initialize(applicationContext)
-        
-        // Schedule periodic background sync with Firestore
-        com.example.data.sync.HouseholdSyncScheduler.schedulePeriodicSync(applicationContext)
+        FirestoreManager.initialize(applicationContext)
 
-        val firestorePopulationRepository = FirestorePopulationRepository(
-            firestoreProvider = { FirestoreManager.getInstance() }
-        )
-        
+        // Schedule periodic background sync with Firestore
+        HouseholdSyncScheduler.schedulePeriodicSync(applicationContext)
+        OsmSyncScheduler.schedulePeriodicSync(applicationContext)
+
         val db = AppDatabase.getInstance(applicationContext)
-        val repository = PersonRepository(db, db.personDao(), db.householdDao(), db.personHistoryDao(), db.populationEventDao())
-        val excelImportUseCase = com.example.domain.ExcelImportUseCase(db)
-        val syncHelper = com.example.data.sync.RoomFirestoreSyncHelper(
+        val repository = PersonRepository(
+            db,
+            db.personDao(),
+            db.householdDao(),
+            db.personHistoryDao(),
+            db.populationEventDao()
+        )
+        val excelImportUseCase = ExcelImportUseCase(db)
+        val syncHelper = RoomFirestoreSyncHelper(
             applicationContext,
             repository,
             firestoreProvider = { FirestoreManager.getInstance() }
         )
-
-        // Schedule background workers for offline sync
-        com.example.data.sync.HouseholdSyncScheduler.schedulePeriodicSync(applicationContext)
-        com.example.data.sync.OsmSyncScheduler.schedulePeriodicSync(applicationContext)
 
         val factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -56,9 +57,9 @@ class MainActivity : FragmentActivity() {
                     @Suppress("UNCHECKED_CAST")
                     return PersonViewModel(repository, excelImportUseCase, syncHelper) as T
                 }
-                if (modelClass.isAssignableFrom(com.example.ui.DiagnosticViewModel::class.java)) {
+                if (modelClass.isAssignableFrom(DiagnosticViewModel::class.java)) {
                     @Suppress("UNCHECKED_CAST")
-                    return com.example.ui.DiagnosticViewModel(
+                    return DiagnosticViewModel(
                         repository,
                         FirestoreManager.getInstance()
                     ) as T
@@ -84,4 +85,3 @@ class MainActivity : FragmentActivity() {
         }
     }
 }
-

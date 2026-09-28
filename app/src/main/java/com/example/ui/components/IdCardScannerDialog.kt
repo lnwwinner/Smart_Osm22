@@ -399,7 +399,7 @@ fun IdCardScannerDialog(
                 }
             }
 
-            // Bottom Test & Simulation Panel (Essential for Emulator / Testing)
+            // Bottom Manual Entry Panel for Barcode / 13-digit National ID
             Card(
                 modifier = Modifier
                     .fillMaxWidth()

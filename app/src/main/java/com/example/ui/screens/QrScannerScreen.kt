@@ -254,7 +254,7 @@ fun QrScannerScreen(
                     )
                 }
 
-                // Instructions & Quick Simulation Panel
+                // Instructions & Guidance Overlay
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -275,50 +275,44 @@ fun QrScannerScreen(
                         )
                     }
 
-                    // Simulation / Quick Select Card for Emulators & Testing
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                    if (errorMessage != null) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
                         ) {
-                            Text(
-                                text = "ทดสอบ / เลือกจำลองการสแกน (สำหรับจำลองบน Emulator):",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            if (persons.isEmpty()) {
-                                Text("ไม่พบข้อมูลประชากรในระบบ", style = MaterialTheme.typography.bodySmall)
-                            } else {
-                                persons.take(3).forEach { person ->
-                                    OutlinedButton(
-                                        onClick = { onPersonFound(person.id) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldPrimary)
-                                    ) {
-                                        Icon(Icons.Filled.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("สแกนจำลอง: ${person.fullName} (${person.nationalId ?: "ไม่มีเลขบัตร"})")
-                                    }
-                                }
-                            }
-
-                            errorMessage?.let { err ->
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                                 Text(
-                                    text = err,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Bold
+                                    text = errorMessage ?: "",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.Black.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        ) {
+                            Text(
+                                text = "ระบบจะค้นหาประวัติสุขภาพและคัดกรองให้อัตโนมัติเมื่อพบข้อมูล",
+                                color = Color.White.copy(alpha = 0.9f),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
                         }
                     }
                 }

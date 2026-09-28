@@ -8,6 +8,7 @@ import com.example.data.vhv.VhvMemberDao
 import com.example.data.vhv.VhvMemberEntity
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,20 +39,25 @@ class VhvFirestoreSyncHelper(
                 ?: return@withContext Result.failure(IllegalStateException("Firestore is not available"))
 
             // 1. Ensure local seed data is loaded
-            val localCount = vhvMemberDao.getVhvCount()
+            var localCount = vhvMemberDao.getVhvCount()
             if (localCount == 0) {
                 Log.i(TAG, "Local VHV database empty. Seeding OSMRP00002 dataset...")
                 vhvMemberDao.insertAll(OsmRp00002Data.PA_KHA_VHV_MEMBERS)
+                localCount = vhvMemberDao.getVhvCount()
             }
 
-            // 2. Push local Room VHV members to Firestore
-            val localMembers = vhvMemberDao.getVhvByCardId("")?.let { listOf(it) } ?: run {
-                // Fetch all members by querying village 1..13 or custom query
-                OsmRp00002Data.PA_KHA_VHV_MEMBERS
+            // 2. Fetch all local members from Room
+            var localMembers = vhvMemberDao.getAllVhvMembers()
+            if (localMembers.isEmpty()) {
+                localMembers = OsmRp00002Data.PA_KHA_VHV_MEMBERS
             }
-            
-            var syncedCount = 0
+
             val collectionRef = firestore.collection(COLLECTION_VHV_MEMBERS)
+
+            // Batch write local VHV members to Firestore for fast, atomic updates
+            var batch = firestore.batch()
+            var opsInBatch = 0
+            var syncedCount = 0
 
             for (member in localMembers) {
                 val docId = member.vhvCardId.ifBlank { member.nationalId }
@@ -75,11 +81,21 @@ class VhvFirestoreSyncHelper(
                         "updatedTimestamp" to member.updatedTimestamp
                     )
 
-                    collectionRef.document(docId)
-                        .set(mapData, SetOptions.merge())
-                        .await()
+                    val docRef = collectionRef.document(docId)
+                    batch.set(docRef, mapData, SetOptions.merge())
+                    opsInBatch++
                     syncedCount++
+
+                    if (opsInBatch >= 400) {
+                        batch.commit().await()
+                        batch = firestore.batch()
+                        opsInBatch = 0
+                    }
                 }
+            }
+
+            if (opsInBatch > 0) {
+                batch.commit().await()
             }
 
             // 3. Pull remote Firestore VHV members to local Room
@@ -90,7 +106,7 @@ class VhvFirestoreSyncHelper(
                     val vhvCardId = doc.getString("vhvCardId") ?: doc.id
                     val nationalId = doc.getString("nationalId") ?: ""
                     val fullName = doc.getString("fullName") ?: continue
-                    
+
                     val entity = VhvMemberEntity(
                         vhvCardId = vhvCardId,
                         nationalId = nationalId,
@@ -116,8 +132,10 @@ class VhvFirestoreSyncHelper(
                     vhvMemberDao.insertAll(remoteMembers)
                     Log.i(TAG, "Successfully pulled ${remoteMembers.size} VHV records from Firestore to Room")
                 }
+            } catch (ce: CancellationException) {
+                throw ce
             } catch (e: Exception) {
-                Log.w(TAG, "Error pulling remote VHV records from Firestore: ${e.message}")
+                Log.w(TAG, "Notice: remote VHV pull incomplete: ${e.message}")
             }
 
             val result = SyncResult(
@@ -128,8 +146,11 @@ class VhvFirestoreSyncHelper(
             _syncState.value = SyncState.Success(result)
             Log.i(TAG, "VHV OSM sync completed successfully: $syncedCount members synced")
             Result.success(result)
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "VHV OSM sync coroutine was cancelled.")
+            throw ce
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to sync VHV OSM data with Firestore", e)
+            Log.e(TAG, "Failed to sync VHV OSM data with Firestore: ${e.localizedMessage}")
             val errorState = SyncState.Error("เกิดข้อผิดพลาดในการซิงค์ข้อมูล อสม.: ${e.localizedMessage}", e)
             _syncState.value = errorState
             Result.failure(e)

@@ -2,12 +2,12 @@ package com.example.data.sync
 
 import android.content.Context
 import android.util.Log
-import androidx.room.Room
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.data.AppDatabase
 import com.example.data.PersonRepository
 import com.example.data.firestore.FirestoreManager
+import kotlinx.coroutines.CancellationException
 
 class HouseholdSyncWorker(
     context: Context,
@@ -21,6 +21,9 @@ class HouseholdSyncWorker(
 
     override suspend fun doWork(): Result {
         return try {
+            if (isStopped) {
+                return Result.success()
+            }
             Log.d(TAG, "Starting periodic background sync of household registration data...")
             val appContext = applicationContext
             
@@ -45,9 +48,12 @@ class HouseholdSyncWorker(
                 Log.i(TAG, "Background sync completed successfully: ${result?.householdsSynced} households, ${result?.personsSynced} persons synced.")
                 Result.success()
             } else {
-                Log.e(TAG, "Background sync failed: ${syncResult.exceptionOrNull()?.message}")
+                Log.w(TAG, "Background sync non-critical failure: ${syncResult.exceptionOrNull()?.message}")
                 Result.retry()
             }
+        } catch (ce: CancellationException) {
+            Log.d(TAG, "HouseholdSyncWorker cancelled normally.")
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Exception during background sync worker execution", e)
             Result.retry()

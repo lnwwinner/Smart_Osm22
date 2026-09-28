@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -567,30 +570,24 @@ fun MedicalEmergencyContent() {
         }
 
         // Hotline action button
-        var showCallSimulated by remember { mutableStateOf(false) }
+        val context = LocalContext.current
 
         Button(
-            onClick = { showCallSimulated = true },
+            onClick = {
+                try {
+                    val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:1669"))
+                    context.startActivity(dialIntent)
+                } catch (e: Exception) {
+                    // fallback
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
             shape = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Filled.Call, contentDescription = null, tint = Color.White)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("จำลองการติดต่อสายด่วน 1669 ด่วน", fontWeight = FontWeight.Bold, color = Color.White)
-        }
-
-        if (showCallSimulated) {
-            AlertDialog(
-                onDismissRequest = { showCallSimulated = false },
-                title = { Text("สายด่วนการแพทย์ฉุกเฉิน 1669", fontWeight = FontWeight.Bold) },
-                text = { Text("ในเครื่องโทรศัพท์จริง ปุ่มนี้จะทำการโทรออกไปยังหมายเลข 1669 ทันที\n\nสิ่งที่ อสม. ต้องแจ้งเจ้าหน้าที่:\n• สถานที่เกิดเหตุ / พิกัดบ้าน\n• เพศและอาการคนไข้เบื้องต้น\n• เบอร์โทรศัพท์สำหรับติดต่อกลับ") },
-                confirmButton = {
-                    TextButton(onClick = { showCallSimulated = false }) {
-                        Text("ตกลง", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
-                    }
-                }
-            )
+            Text("โทรสายด่วน 1669 การแพทย์ฉุกเฉิน", fontWeight = FontWeight.Bold, color = Color.White)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
