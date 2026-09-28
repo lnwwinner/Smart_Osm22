@@ -267,7 +267,6 @@ fun AppNavigation(
                     onNavigateToLogin = { navController.navigate("login") },
                     onNavigateToUserProfile = { navController.navigate("user_profile") },
                     onNavigateToVhvRegistration = { navController.navigate("vhv_registration") },
-                    onNavigateToOsmRp00002 = { navController.navigate("osmrp_directory") },
                     onNavigateToMonthlyReport = { navController.navigate("vhv_monthly_report") },
                     onNavigateToVideoTutorials = { navController.navigate("video_tutorials") }
                 )
@@ -284,25 +283,7 @@ fun AppNavigation(
                 VhvRegistrationScreen(
                     authViewModel = authViewModel,
                     onRegistrationSuccess = { navController.popBackStack() },
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToOsmRp00002 = { navController.navigate("osmrp_directory") }
-                )
-            }
-            composable("osmrp_directory") {
-                val vhvRepository = remember { VhvRepository(repository.getVhvMemberDao()) }
-                val vhvViewModel: VhvDirectoryViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
-                    @Suppress("UNCHECKED_CAST")
-                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-                        return VhvDirectoryViewModel(vhvRepository) as T
-                    }
-                })
-                OsmRp00002Screen(
-                    vhvViewModel = vhvViewModel,
-                    authViewModel = authViewModel,
-                    onNavigateBack = { navController.popBackStack() },
-                    onRegistrationCompleted = {
-                        navController.popBackStack()
-                    }
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable("diagnostic") {

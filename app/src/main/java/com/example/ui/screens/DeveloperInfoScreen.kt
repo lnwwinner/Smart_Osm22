@@ -57,7 +57,6 @@ fun DeveloperInfoScreen(
     onNavigateToLogin: () -> Unit = {},
     onNavigateToUserProfile: () -> Unit = {},
     onNavigateToVhvRegistration: () -> Unit = {},
-    onNavigateToOsmRp00002: () -> Unit = {},
     onNavigateToMonthlyReport: () -> Unit = {},
     onNavigateToVideoTutorials: () -> Unit = {}
 ) {
@@ -386,55 +385,6 @@ fun DeveloperInfoScreen(
                                 text = "สรุปผลงานรายเดือน, ผู้สูงอายุ & พิมพ์ A4 PDF / Excel",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                            )
-                        }
-                    }
-                    Icon(Icons.Filled.ArrowForward, contentDescription = null, tint = EmeraldPrimary)
-                }
-            }
-
-            // OSMRP00002 VHV Directory Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onNavigateToOsmRp00002)
-                    .shadow(4.dp, RoundedCornerShape(22.dp), spotColor = CardShadowTint),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.3f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(EmeraldPrimary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Filled.Dataset, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
-                        }
-                        Column {
-                            Text(
-                                text = "รายงานข้อมูล อสม. ต.ป่าขะ (OSMRP00002)",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "ฐานข้อมูลรายชื่อ อสม. 13 หมู่บ้าน (thaiphc.net)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
