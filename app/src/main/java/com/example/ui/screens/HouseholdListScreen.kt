@@ -369,7 +369,7 @@ fun HouseholdListScreen(
         }
         when (selectedFilter) {
             "มีผู้สูงอายุ" -> result = result.filter { it.elderly > 0 }
-            "มีเด็กเล็ก" -> result = result.filter { it.children > 0 }
+            "มีเด็กเล็ก" -> result = result.filter { it.earlyChild > 0 }
             "มีผู้เสียชีวิต" -> result = result.filter { it.deceased > 0 }
             "ไม่มีพิกัด GPS" -> result = result.filter { it.latitude == null || it.longitude == null || it.latitude == 0.0 }
         }

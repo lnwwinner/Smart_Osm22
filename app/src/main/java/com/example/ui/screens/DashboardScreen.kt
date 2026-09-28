@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import com.example.data.VhvAgeGroup
 import com.example.R
 import com.example.data.DataStatus
 import com.example.data.Gender
@@ -100,14 +101,16 @@ fun DashboardScreen(
 
     val seniorsCount = remember(allPersons) {
         allPersons.count { p ->
+            if (p.personStatus != PersonStatus.ALIVE) return@count false
             val age = viewModel.calculateAge(p.birthDate, p.personStatus)
-            (age ?: 0) >= 60
+            VhvAgeGroup.fromAge(age) == VhvAgeGroup.ELDERLY
         }
     }
     val childrenCount = remember(allPersons) {
         allPersons.count { p ->
+            if (p.personStatus != PersonStatus.ALIVE) return@count false
             val age = viewModel.calculateAge(p.birthDate, p.personStatus)
-            age != null && age <= 5
+            VhvAgeGroup.fromAge(age) == VhvAgeGroup.EARLY_CHILD
         }
     }
 
@@ -742,15 +745,17 @@ fun DashboardScreen(
                                 } else {
                                     val standardGroups = listOf(
                                         "0-5 ปี",
-                                        "6-24 ปี",
-                                        "25-59 ปี",
+                                        "6-12 ปี",
+                                        "13-20 ปี",
+                                        "21-59 ปี",
                                         "60 ปีขึ้นไป"
                                     )
                                     val dataList = listOf(
-                                        ageGroupSummary["เด็กปฐมวัย (0-5 ปี)"] ?: 0,
-                                        ageGroupSummary["เด็กโตและวัยรุ่น (6-24 ปี)"] ?: 0,
-                                        ageGroupSummary["วัยทำงาน (25-59 ปี)"] ?: 0,
-                                        ageGroupSummary["ผู้สูงอายุ (60 ปีขึ้นไป)"] ?: 0
+                                        ageGroupSummary[VhvAgeGroup.EARLY_CHILD.value] ?: 0,
+                                        ageGroupSummary[VhvAgeGroup.SCHOOL_AGE.value] ?: 0,
+                                        ageGroupSummary[VhvAgeGroup.TEENAGER.value] ?: 0,
+                                        ageGroupSummary[VhvAgeGroup.WORKING_AGE.value] ?: 0,
+                                        ageGroupSummary[VhvAgeGroup.ELDERLY.value] ?: 0
                                     )
 
                                     val chartEntryModel = com.patrykandpatrick.vico.core.entry.entryModelOf(*dataList.map { it.toFloat() }.toTypedArray())

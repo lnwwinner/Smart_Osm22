@@ -28,6 +28,7 @@ import com.example.data.HouseholdWithPersons
 import java.time.Period
 import com.example.utils.ValidationUtils
 
+import com.example.data.VhvAgeGroup
 import com.example.data.HouseSummary
 import com.example.data.DataStatus
 import com.example.data.Gender
@@ -465,21 +466,26 @@ class PersonViewModel(
     }
 
     fun getAgeGroup(age: Int?): String {
-        if (age == null) return "ไม่ระบุ"
-        return when {
-            age <= 5 -> "เด็กปฐมวัย (0-5 ปี)"
-            age <= 24 -> "เด็กโตและวัยรุ่น (6-24 ปี)"
-            age <= 59 -> "วัยทำงาน (25-59 ปี)"
-            else -> "ผู้สูงอายุ (60 ปีขึ้นไป)"
-        }
+        return VhvAgeGroup.fromAge(age).value
     }
 
     val ageGroupSummary: StateFlow<Map<String, Int>> = allPersons.map { persons ->
         val summary = mutableMapOf<String, Int>().withDefault { 0 }
+        // Ensure all categories are present even if count is 0
+        VhvAgeGroup.entries.forEach { group ->
+            if (group != VhvAgeGroup.UNKNOWN) {
+                summary[group.value] = 0
+            }
+        }
+        
         persons.forEach { person ->
-            val age = calculateAge(person.birthDate, person.personStatus)
-            val group = getAgeGroup(age)
-            summary[group] = summary.getValue(group) + 1
+            if (person.personStatus == PersonStatus.ALIVE) {
+                val age = calculateAge(person.birthDate, person.personStatus)
+                val group = VhvAgeGroup.fromAge(age)
+                if (group != VhvAgeGroup.UNKNOWN) {
+                    summary[group.value] = summary.getValue(group.value) + 1
+                }
+            }
         }
         summary
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())

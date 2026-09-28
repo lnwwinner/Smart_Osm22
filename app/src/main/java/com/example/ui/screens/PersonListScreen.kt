@@ -33,6 +33,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.example.R
+import com.example.data.VhvAgeGroup
 import com.example.data.Gender
 import com.example.data.Person
 import com.example.data.PersonStatus
@@ -53,9 +54,11 @@ fun PersonListScreen(
 
     val filterOptions = listOf(
         "ทั้งหมด", 
-        "ผู้สูงอายุ (60+)", 
+        "เด็กปฐมวัย (0-5)", 
         "เด็กวัยเรียน (6-12)", 
-        "เด็กเล็ก (0-5)", 
+        "วัยรุ่น (13-20)", 
+        "วัยทำงาน (21-59)",
+        "ผู้สูงอายุ (60+)", 
         "เสียชีวิตแล้ว"
     )
 
@@ -79,17 +82,25 @@ fun PersonListScreen(
 
         val currentYear = LocalDate.now().year
         when (selectedFilter) {
-            "ผู้สูงอายุ (60+)" -> result = result.filter { 
-                val age = it.first.birthDate?.let { dob -> currentYear - dob.year }
-                it.first.personStatus == PersonStatus.ALIVE && age != null && age >= 60 
+            "เด็กปฐมวัย (0-5)" -> result = result.filter { 
+                val age = viewModel.calculateAge(it.first.birthDate, it.first.personStatus)
+                it.first.personStatus == PersonStatus.ALIVE && VhvAgeGroup.fromAge(age) == VhvAgeGroup.EARLY_CHILD
             }
             "เด็กวัยเรียน (6-12)" -> result = result.filter { 
-                val age = it.first.birthDate?.let { dob -> currentYear - dob.year }
-                it.first.personStatus == PersonStatus.ALIVE && age != null && age in 6..12 
+                val age = viewModel.calculateAge(it.first.birthDate, it.first.personStatus)
+                it.first.personStatus == PersonStatus.ALIVE && VhvAgeGroup.fromAge(age) == VhvAgeGroup.SCHOOL_AGE
             }
-            "เด็กเล็ก (0-5)" -> result = result.filter { 
-                val age = it.first.birthDate?.let { dob -> currentYear - dob.year }
-                it.first.personStatus == PersonStatus.ALIVE && age != null && age in 0..5 
+            "วัยรุ่น (13-20)" -> result = result.filter { 
+                val age = viewModel.calculateAge(it.first.birthDate, it.first.personStatus)
+                it.first.personStatus == PersonStatus.ALIVE && VhvAgeGroup.fromAge(age) == VhvAgeGroup.TEENAGER
+            }
+            "วัยทำงาน (21-59)" -> result = result.filter { 
+                val age = viewModel.calculateAge(it.first.birthDate, it.first.personStatus)
+                it.first.personStatus == PersonStatus.ALIVE && VhvAgeGroup.fromAge(age) == VhvAgeGroup.WORKING_AGE
+            }
+            "ผู้สูงอายุ (60+)" -> result = result.filter { 
+                val age = viewModel.calculateAge(it.first.birthDate, it.first.personStatus)
+                it.first.personStatus == PersonStatus.ALIVE && VhvAgeGroup.fromAge(age) == VhvAgeGroup.ELDERLY
             }
             "เสียชีวิตแล้ว" -> result = result.filter { it.first.personStatus == PersonStatus.DEAD }
         }

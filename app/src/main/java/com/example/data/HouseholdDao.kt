@@ -59,8 +59,7 @@ interface HouseholdDao {
     fun getHouseholdWithPersonsById(householdId: Long): Flow<HouseholdWithPersons?>
 
     @Query("""
-        SELECT h.id as householdId, h.houseNo, h.latitude, h.longitude, h.dataStatus as dataStatus,
-        (SELECT fullName FROM persons WHERE householdId = h.id AND houseStatus = 'HEAD' LIMIT 1) as headName,
+        SELECT h.id as householdId, h.houseNo,
         COUNT(p.id) as totalMembers,
         SUM(CASE WHEN p.gender = 'MALE' THEN 1 ELSE 0 END) as males,
         SUM(CASE WHEN p.gender = 'FEMALE' THEN 1 ELSE 0 END) as females,
@@ -68,7 +67,12 @@ interface HouseholdDao {
         SUM(CASE WHEN p.houseStatus = 'RESIDENT' THEN 1 ELSE 0 END) as residents,
         SUM(CASE WHEN p.personStatus = 'DEAD' THEN 1 ELSE 0 END) as deceased,
         SUM(CASE WHEN p.personStatus = 'ALIVE' AND (CAST(strftime('%Y', 'now') AS INTEGER) - CAST(substr(p.birthDate, 1, 4) AS INTEGER)) >= 60 THEN 1 ELSE 0 END) as elderly,
-        SUM(CASE WHEN p.personStatus = 'ALIVE' AND (CAST(strftime('%Y', 'now') AS INTEGER) - CAST(substr(p.birthDate, 1, 4) AS INTEGER)) BETWEEN 0 AND 12 THEN 1 ELSE 0 END) as children
+        SUM(CASE WHEN p.personStatus = 'ALIVE' AND (CAST(strftime('%Y', 'now') AS INTEGER) - CAST(substr(p.birthDate, 1, 4) AS INTEGER)) BETWEEN 0 AND 5 THEN 1 ELSE 0 END) as earlyChild,
+        SUM(CASE WHEN p.personStatus = 'ALIVE' AND (CAST(strftime('%Y', 'now') AS INTEGER) - CAST(substr(p.birthDate, 1, 4) AS INTEGER)) BETWEEN 6 AND 12 THEN 1 ELSE 0 END) as schoolAge,
+        SUM(CASE WHEN p.personStatus = 'ALIVE' AND (CAST(strftime('%Y', 'now') AS INTEGER) - CAST(substr(p.birthDate, 1, 4) AS INTEGER)) BETWEEN 13 AND 20 THEN 1 ELSE 0 END) as teenager,
+        SUM(CASE WHEN p.personStatus = 'ALIVE' AND (CAST(strftime('%Y', 'now') AS INTEGER) - CAST(substr(p.birthDate, 1, 4) AS INTEGER)) BETWEEN 21 AND 59 THEN 1 ELSE 0 END) as workingAge,
+        h.latitude, h.longitude, h.dataStatus as dataStatus,
+        (SELECT fullName FROM persons WHERE householdId = h.id AND houseStatus = 'HEAD' LIMIT 1) as headName
         FROM households h
         LEFT JOIN persons p ON h.id = p.householdId
         GROUP BY h.id, h.houseNo, h.latitude, h.longitude, h.dataStatus

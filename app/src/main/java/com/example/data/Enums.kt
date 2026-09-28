@@ -48,3 +48,29 @@ enum class DataStatus(val value: String) {
         }
     }
 }
+
+enum class VhvAgeGroup(val value: String) {
+    EARLY_CHILD("เด็กปฐมวัย (0-5 ปี)"),
+    SCHOOL_AGE("เด็กวัยเรียน (6-12 ปี)"),
+    TEENAGER("วัยรุ่น (13-20 ปี)"),
+    WORKING_AGE("วัยทำงาน (21-59 ปี)"),
+    ELDERLY("ผู้สูงอายุ (60 ปีขึ้นไป)"),
+    UNKNOWN("ไม่ระบุ");
+
+    companion object {
+        fun fromAge(age: Int?): VhvAgeGroup {
+            if (age == null) return UNKNOWN
+            return when {
+                age <= 5 -> EARLY_CHILD
+                age <= 12 -> SCHOOL_AGE
+                age <= 20 -> TEENAGER
+                age <= 59 -> WORKING_AGE
+                else -> ELDERLY
+            }
+        }
+        
+        fun fromString(value: String): VhvAgeGroup {
+            return entries.find { it.value == value || it.name.equals(value, ignoreCase = true) } ?: UNKNOWN
+        }
+    }
+}

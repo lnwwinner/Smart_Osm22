@@ -87,8 +87,11 @@ enum class MapDisplayMode(val title: String) {
 enum class PopulationFilter(val label: String) {
     ALL("ทั้งหมด"),
     HIGH_DENSITY("หนาแน่น (4+ คน)"),
-    ELDERLY("มีผู้สูงอายุ (60+)"),
-    CHILDREN("มีเด็กเล็ก (0-12)"),
+    EARLY_CHILD("เด็กปฐมวัย (0-5)"),
+    SCHOOL_AGE("เด็กวัยเรียน (6-12)"),
+    TEENAGER("วัยรุ่น (13-20)"),
+    WORKING_AGE("วัยทำงาน (21-59)"),
+    ELDERLY("ผู้สูงอายุ (60+)"),
     LOW_DENSITY("1-2 คน")
 }
 
@@ -265,8 +268,11 @@ fun MapScreen(
         val byFilter = when (activeFilter) {
             PopulationFilter.ALL -> mappedHouses
             PopulationFilter.HIGH_DENSITY -> mappedHouses.filter { it.totalMembers >= 4 }
+            PopulationFilter.EARLY_CHILD -> mappedHouses.filter { it.earlyChild > 0 }
+            PopulationFilter.SCHOOL_AGE -> mappedHouses.filter { it.schoolAge > 0 }
+            PopulationFilter.TEENAGER -> mappedHouses.filter { it.teenager > 0 }
+            PopulationFilter.WORKING_AGE -> mappedHouses.filter { it.workingAge > 0 }
             PopulationFilter.ELDERLY -> mappedHouses.filter { it.elderly > 0 }
-            PopulationFilter.CHILDREN -> mappedHouses.filter { it.children > 0 }
             PopulationFilter.LOW_DENSITY -> mappedHouses.filter { it.totalMembers in 1..2 }
         }
         if (searchQuery.isBlank()) byFilter
@@ -330,7 +336,7 @@ fun MapScreen(
     val totalMappedPopulation = remember(mappedHouses) { mappedHouses.sumOf { it.totalMembers } }
     val totalVillagePopulation = remember(houseSummary) { houseSummary.sumOf { it.totalMembers } }
     val mappedElderly = remember(mappedHouses) { mappedHouses.sumOf { it.elderly } }
-    val mappedChildren = remember(mappedHouses) { mappedHouses.sumOf { it.children } }
+    val mappedChildren = remember(mappedHouses) { mappedHouses.sumOf { it.earlyChild + it.schoolAge } }
     val mappedMales = remember(mappedHouses) { mappedHouses.sumOf { it.males } }
     val mappedFemales = remember(mappedHouses) { mappedHouses.sumOf { it.females } }
     val avgPerHouse = remember(mappedHouses) {
@@ -542,7 +548,7 @@ fun MapScreen(
                                         context = context,
                                         totalMembers = house.totalMembers,
                                         hasElderly = house.elderly > 0,
-                                        hasChildren = house.children > 0,
+                                        hasChildren = (house.earlyChild + house.schoolAge) > 0,
                                         dataStatus = house.dataStatus,
                                         isSelected = selectedHouse?.householdId == house.householdId,
                                         markerStyle = selectedMarkerStyle,
@@ -951,12 +957,15 @@ fun MapScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(horizontal = 2.dp)
                 ) {
-                    items(PopulationFilter.values()) { filter ->
+                    items(PopulationFilter.entries) { filter ->
                         val count = when (filter) {
                             PopulationFilter.ALL -> mappedHouses.size
                             PopulationFilter.HIGH_DENSITY -> mappedHouses.count { it.totalMembers >= 4 }
+                            PopulationFilter.EARLY_CHILD -> mappedHouses.count { it.earlyChild > 0 }
+                            PopulationFilter.SCHOOL_AGE -> mappedHouses.count { it.schoolAge > 0 }
+                            PopulationFilter.TEENAGER -> mappedHouses.count { it.teenager > 0 }
+                            PopulationFilter.WORKING_AGE -> mappedHouses.count { it.workingAge > 0 }
                             PopulationFilter.ELDERLY -> mappedHouses.count { it.elderly > 0 }
-                            PopulationFilter.CHILDREN -> mappedHouses.count { it.children > 0 }
                             PopulationFilter.LOW_DENSITY -> mappedHouses.count { it.totalMembers in 1..2 }
                         }
                         FilterChip(
@@ -1749,7 +1758,7 @@ fun MapScreen(
                             StatMiniCard(
                                 modifier = Modifier.weight(1f),
                                 title = "สูงอายุ / เด็ก",
-                                value = "${house.elderly} / ${house.children}",
+                                value = "${house.elderly} / ${house.earlyChild + house.schoolAge}",
                                 subtext = "กลุ่มเปราะบาง",
                                 color = Color(0xFF8B5CF6)
                             )
@@ -2463,7 +2472,7 @@ fun UnpinnedHousesDialog(
                                 ) {
                                     Column {
                                         Text("บ้านเลขที่ ${house.houseNo}", fontWeight = FontWeight.Bold)
-                                        Text("สมาชิก ${house.totalMembers} คน (สูงอายุ ${house.elderly}, เด็ก ${house.children})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("สมาชิก ${house.totalMembers} คน (สูงอายุ ${house.elderly}, เด็ก ${house.earlyChild + house.schoolAge})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Button(
                                         onClick = { onPinHouse(house) },
