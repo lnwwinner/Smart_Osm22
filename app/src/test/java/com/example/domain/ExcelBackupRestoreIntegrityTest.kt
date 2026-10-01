@@ -22,7 +22,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.util.UUID
 
 /**
  * Regression coverage for the real backup/restore path represented by
@@ -140,7 +139,12 @@ class ExcelBackupRestoreIntegrityTest {
                 householdNumber
             )
             val houseNo = (householdNumber * 10).toString()
-            val members = if (householdNumber <= 1) 9 else 4
+            val members = when (householdNumber) {
+                1 -> 9
+                2 -> 3
+                17 -> 1
+                else -> 4
+            }
 
             repeat(members) { memberIndex ->
                 val row = sheet.createRow(rowIndex++)
@@ -170,15 +174,6 @@ class ExcelBackupRestoreIntegrityTest {
                 row.createCell(14).setCellValue(PersonStatus.ALIVE.name)
                 row.createCell(15).setCellValue("VERIFIED")
             }
-        }
-
-        // 9 + (16 * 4) = 73, so replace four of the later household rows with
-        // three members to make the fixture exactly 69 people.
-        // The loop above is intentionally explicit; trim the excess rows below.
-        val targetRows = 69
-        while (sheet.lastRowNum >= targetRows) {
-            val row = sheet.getRow(sheet.lastRowNum)
-            if (row != null) sheet.removeRow(row)
         }
 
         val out = ByteArrayOutputStream()
