@@ -3,7 +3,6 @@ package com.example.data.sync
 import android.content.Context
 import android.util.Log
 import com.example.data.firestore.FirestoreManager
-import com.example.data.vhv.OsmRp00002Data
 import com.example.data.vhv.VhvMemberDao
 import com.example.data.vhv.VhvMemberEntity
 import com.google.firebase.firestore.FirebaseFirestore
@@ -17,7 +16,9 @@ import kotlinx.coroutines.withContext
 
 /**
  * Helper class for synchronizing Public Health Volunteer (OSM / VHV) data
- * sourced from OSMRP00002 between local Room database and Cloud Firestore.
+ * between the local Room database and Cloud Firestore.
+ *
+ * No hardcoded OSMRP00002/mock dataset is seeded here.
  */
 class VhvFirestoreSyncHelper(
     private val context: Context,
@@ -35,49 +36,19 @@ class VhvFirestoreSyncHelper(
     private suspend fun ensureAuth() {
         try {
             val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-            if (auth.currentUser == null) {
-                auth.signInAnonymously().await()
-            }
+            if (auth.currentUser == null) auth.signInAnonymously().await()
         } catch (e: Exception) {
-            Log.d(TAG, "FirebaseAuth ensureAuth note: ${e.message}")
-        }
-    }
-
-    private fun formatFirestoreError(e: Throwable): String {
-        val msg = e.message ?: ""
-        return when {
-            msg.contains("PERMISSION_DENIED", ignoreCase = true) -> {
-                "สิทธิ์การเข้าถึง Cloud Firestore ถูกปฏิเสธ (PERMISSION_DENIED): โปรดตรวจสอบ Firebase Security Rules (ระบบใช้งานข้อมูลในเครื่อง Room ได้ตามปกติ)"
-            }
-            msg.contains("UNAVAILABLE", ignoreCase = true) -> {
-                "ไม่สามารถเชื่อมต่อ Cloud ได้ในขณะนี้: ข้อมูลถูกบันทึกในเครื่อง (Room Database) เรียบร้อยแล้ว"
-            }
-            else -> msg.ifBlank { "เกิดข้อผิดพลาดในการเชื่อมต่อ Cloud Firestore" }
+            Log.d(TAG, "FirebaseAuth ensureAuth note: " + e.message)
         }
     }
 
     suspend fun syncOsmData(): Result<SyncResult> = withContext(Dispatchers.IO) {
         _syncState.value = SyncState.Syncing("กำลังซิงค์ข้อมูล อสม. กับระบบ Cloud...")
         try {
-            // 1. Ensure local seed data is loaded first regardless of cloud status
-            var localCount = vhvMemberDao.getVhvCount()
-            if (localCount == 0) {
-                Log.i(TAG, "Local VHV database empty. Seeding OSMRP00002 dataset...")
-                try {
-                    vhvMemberDao.insertAll(OsmRp00002Data.PA_KHA_VHV_MEMBERS)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Local seed note: ${e.message}")
-                }
-                localCount = vhvMemberDao.getVhvCount()
-            }
-
-            var localMembers = vhvMemberDao.getAllVhvMembers()
-            if (localMembers.isEmpty()) {
-                localMembers = OsmRp00002Data.PA_KHA_VHV_MEMBERS
-            }
-
-            // Attempt Cloud Firestore sync, but fallback gracefully if permission or network fails
+            // Use only records that already exist in the real local database.
+            val localMembers = vhvMemberDao.getAllVhvMembers()
             var syncedCount = localMembers.size
+
             try {
                 ensureAuth()
                 val firestore = firestoreProvider()
@@ -108,8 +79,7 @@ class VhvFirestoreSyncHelper(
                                 "updatedTimestamp" to member.updatedTimestamp
                             )
 
-                            val docRef = collectionRef.document(docId)
-                            batch.set(docRef, mapData, SetOptions.merge())
+                            batch.set(collectionRef.document(docId), mapData, SetOptions.merge())
                             opsInBatch++
 
                             if (opsInBatch >= 400) {
@@ -120,11 +90,8 @@ class VhvFirestoreSyncHelper(
                         }
                     }
 
-                    if (opsInBatch > 0) {
-                        batch.commit().await()
-                    }
+                    if (opsInBatch > 0) batch.commit().await()
 
-                    // Pull remote
                     val snapshot = collectionRef.get().await()
                     val remoteMembers = mutableListOf<VhvMemberEntity>()
                     for (doc in snapshot.documents) {
@@ -132,39 +99,44 @@ class VhvFirestoreSyncHelper(
                         val nationalId = doc.getString("nationalId") ?: ""
                         val fullName = doc.getString("fullName") ?: continue
 
-                        val entity = VhvMemberEntity(
-                            vhvCardId = vhvCardId,
-                            nationalId = nationalId,
-                            fullName = fullName,
-                            gender = doc.getString("gender") ?: "หญิง",
-                            phone = doc.getString("phone") ?: "",
-                            villageNo = doc.getString("villageNo") ?: "1",
-                            villageName = doc.getString("villageName") ?: "หมู่ 1",
-                            subdistrict = doc.getString("subdistrict") ?: "ต.ป่าขะ",
-                            district = doc.getString("district") ?: "อ.บ้านนา",
-                            province = doc.getString("province") ?: "จ.นครนายก",
-                            healthCenter = doc.getString("healthCenter") ?: "รพ.สต.ป่าขะ",
-                            roleTitle = doc.getString("roleTitle") ?: "อสม. ประจำหมู่บ้าน",
-                            assignedHouseholdsCount = (doc.getLong("assignedHouseholdsCount") ?: 12L).toInt(),
-                            status = doc.getString("status") ?: "ปฏิบัติงานปกติ",
-                            reportSource = doc.getString("reportSource") ?: "thaiphc.net / OSMRP00002",
-                            updatedTimestamp = doc.getLong("updatedTimestamp") ?: System.currentTimeMillis()
+                        remoteMembers.add(
+                            VhvMemberEntity(
+                                vhvCardId = vhvCardId,
+                                nationalId = nationalId,
+                                fullName = fullName,
+                                gender = doc.getString("gender") ?: "",
+                                phone = doc.getString("phone") ?: "",
+                                villageNo = doc.getString("villageNo") ?: "",
+                                villageName = doc.getString("villageName") ?: "",
+                                subdistrict = doc.getString("subdistrict") ?: "",
+                                district = doc.getString("district") ?: "",
+                                province = doc.getString("province") ?: "",
+                                healthCenter = doc.getString("healthCenter") ?: "",
+                                roleTitle = doc.getString("roleTitle") ?: "",
+                                assignedHouseholdsCount =
+                                    (doc.getLong("assignedHouseholdsCount") ?: 0L).toInt(),
+                                status = doc.getString("status") ?: "",
+                                reportSource = doc.getString("reportSource") ?: "",
+                                updatedTimestamp =
+                                    doc.getLong("updatedTimestamp") ?: System.currentTimeMillis()
+                            )
                         )
-                        remoteMembers.add(entity)
                     }
 
                     if (remoteMembers.isNotEmpty()) {
                         vhvMemberDao.insertAll(remoteMembers)
+                        syncedCount = remoteMembers.size
                     }
                     Log.i(TAG, "VHV Cloud Firestore sync completed successfully")
                 }
             } catch (cloudEx: Exception) {
-                Log.w(TAG, "Cloud Firestore sync skipped or restricted (PERMISSION_DENIED/Offline): ${cloudEx.message}. Using local Room database.")
+                Log.w(TAG, "Cloud Firestore sync skipped/restricted: " +
+                    cloudEx.message + ". Using local Room database.")
             }
 
             val result = SyncResult(
                 personsSynced = syncedCount,
-                message = "ซิงค์ข้อมูล อสม. ($syncedCount รายการ) เรียบร้อยแล้ว (ใช้งานฐานข้อมูลในเครื่อง)",
+                message = "ซิงค์ข้อมูล อสม. (" + syncedCount + " รายการ) เรียบร้อยแล้ว",
                 timestamp = System.currentTimeMillis()
             )
             _syncState.value = SyncState.Success(result)
@@ -173,10 +145,10 @@ class VhvFirestoreSyncHelper(
             Log.d(TAG, "VHV OSM sync coroutine was cancelled.")
             throw ce
         } catch (e: Exception) {
-            Log.w(TAG, "VHV sync completed with local fallback: ${e.localizedMessage}")
+            Log.w(TAG, "VHV sync failed: " + e.localizedMessage)
             val result = SyncResult(
-                personsSynced = 13,
-                message = "โหลดข้อมูล อสม. จากฐานข้อมูลในเครื่องสำเร็จ",
+                personsSynced = 0,
+                message = "ยังไม่มีข้อมูล อสม. ในฐานข้อมูลเครื่อง",
                 timestamp = System.currentTimeMillis()
             )
             _syncState.value = SyncState.Success(result)
