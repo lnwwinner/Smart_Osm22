@@ -11,22 +11,13 @@ on:
       - main
       - develop
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type (debug or release)'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build APK
+    name: Build Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -63,34 +54,16 @@ jobs:
           MAPS_API_KEY: placeholder_maps_api_key_ci_build
 
       - name: Build Debug APK
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'debug'
         run: gradle assembleDebug --stacktrace --no-daemon
         env:
           MAPS_API_KEY: placeholder_maps_api_key_ci_build
 
-      # Release is intentionally not treated as a production-signed build.
-      # A real release must use the repository's configured signing secrets.
-      - name: Build Release APK
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_type == 'release'
-        run: gradle assembleRelease --stacktrace --no-daemon
-        env:
-          MAPS_API_KEY: placeholder_maps_api_key_ci_build
-
       - name: Upload Debug APK
-        if: (github.event_name != 'workflow_dispatch' || github.event.inputs.build_type == 'debug') && success()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
-          retention-days: 30
-          if-no-files-found: error
-
-      - name: Upload Release APK
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.build_type == 'release' && success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
-          path: app/build/outputs/apk/release/*.apk
           retention-days: 30
           if-no-files-found: error
 
