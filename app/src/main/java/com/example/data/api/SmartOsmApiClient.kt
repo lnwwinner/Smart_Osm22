@@ -10,6 +10,11 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 
 class SmartOsmApiClient(
     private val accessTokenProvider: () -> String? = { null }
@@ -22,11 +27,13 @@ class SmartOsmApiClient(
 
     private val authHttpClient = OkHttpClient.Builder()
         .addInterceptor(UserAgentInterceptor)
+        .addInterceptor(NetworkDiagnosticsInterceptor)
         .build()
 
     private val dataHttpClient = OkHttpClient.Builder()
         .addInterceptor(UserAgentInterceptor)
         .addInterceptor(AccessTokenInterceptor(accessTokenProvider))
+        .addInterceptor(NetworkDiagnosticsInterceptor)
         .build()
 
     val auth: SmartOsmAuthService = Retrofit.Builder()
@@ -57,6 +64,35 @@ class SmartOsmApiClient(
         }
     }
 
+    private object NetworkDiagnosticsInterceptor : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val request = chain.request()
+            val host = request.url.host
+            return try {
+                val networkResponse = chain.proceed(request)
+                if (!networkResponse.isSuccessful) {
+                    Log.w("SmartOsmApi", "HTTP " + networkResponse.code + " " + request.method + " " + host + request.url.encodedPath)
+                }
+                networkResponse
+            } catch (error: SSLHandshakeException) {
+                Log.e("SmartOsmApi", "TLS_HANDSHAKE_FAILED host=" + host, error)
+                throw error
+            } catch (error: UnknownHostException) {
+                Log.e("SmartOsmApi", "DNS_FAILED host=" + host, error)
+                throw error
+            } catch (error: SocketTimeoutException) {
+                Log.e("SmartOsmApi", "TIMEOUT host=" + host, error)
+                throw error
+            } catch (error: ConnectException) {
+                Log.e("SmartOsmApi", "CONNECTION_FAILED host=" + host, error)
+                throw error
+            } catch (error: IOException) {
+                Log.e("SmartOsmApi", "NETWORK_IO_FAILED host=" + host + " type=" + error.javaClass.simpleName, error)
+                throw error
+            }
+        }
+    }
+
     private class AccessTokenInterceptor(
         private val provider: () -> String?
     ) : Interceptor {
@@ -66,12 +102,7 @@ class SmartOsmApiClient(
             if (token.isNotEmpty()) {
                 builder.header("Authorization", "Bearer " + token)
             }
-            return try {
-                chain.proceed(builder.build())
-            } catch (error: Throwable) {
-                Log.w("SmartOsmApi", "API request failed: " + error.message)
-                throw error
-            }
+            return chain.proceed(builder.build())
         }
     }
 }
