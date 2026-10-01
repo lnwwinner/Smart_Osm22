@@ -198,7 +198,7 @@ class HouseholdPinningTest {
         assertEquals(2, h1Summary.males)
         assertEquals(1, h1Summary.females)
         assertEquals(1, h1Summary.elderly)
-        assertEquals(1, h1Summary.children)
+        assertEquals(1, h1Summary.earlyChild + h1Summary.schoolAge)
         assertNotNull(h1Summary.latitude)
         assertNotNull(h1Summary.longitude)
 

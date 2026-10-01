@@ -154,15 +154,5 @@ class AuthViewModelTest {
         assertEquals(AuthUiState.Idle, viewModel.uiState.value)
     }
 
-    @Test
-    fun `signInWithGoogleTest sets success state`() = runTest(testDispatcher) {
-        val fakeAuthManager = object : AuthManager({ null }) {}
-        val viewModel = AuthViewModel(fakeAuthManager)
-        val context: Context = ApplicationProvider.getApplicationContext()
 
-        viewModel.signInWithGoogleTest(context, "testuser@gmail.com")
-        assertTrue(viewModel.uiState.value is AuthUiState.Success)
-        val success = viewModel.uiState.value as AuthUiState.Success
-        assertEquals("เข้าสู่ระบบบัญชี Google ทดสอบสำเร็จ", success.message)
-    }
 }

@@ -69,16 +69,23 @@ class DiagnosticViewModelTest {
         viewModel.runDiagnostic(context)
 
         val state = viewModel.state.value
-        assertEquals("Firebase is not configured.", state.error)
+        assertEquals(
+            "ระบบ Cloud (Firebase) ยังไม่ได้เชื่อมต่อในระบบนี้ (ใช้งานฐานข้อมูลภายใน Room ได้ปกติ)",
+            state.error
+        )
         assertFalse(state.isLoading)
     }
 
     @Test
     fun testSharedPreferencesActiveVillageNoFallback() {
         val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putString("surveyor_village_no", "10").apply()
+        prefs.putString("surveyor_village_no", "10")
 
         val activeVillageNo = prefs.getString("surveyor_village_no", "8")
         assertEquals("10", activeVillageNo)
+    }
+
+    private fun android.content.SharedPreferences.putString(key: String, value: String) {
+        edit().putString(key, value).commit()
     }
 }

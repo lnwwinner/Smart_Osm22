@@ -26,6 +26,10 @@ class ChildResurrectionTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
+        context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putString("surveyor_village_no", "8")
+            .commit()
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
@@ -52,7 +56,7 @@ class ChildResurrectionTest {
                 saveCalled = true
             }
         }
-        
+
         val person = Person(
             personUuid = "P-001",
             householdId = 1L,
@@ -67,7 +71,7 @@ class ChildResurrectionTest {
 
         assertTrue("Sync should fail when parent household is tombstoned", result.isFailure)
         assertFalse("performPersonSave should not be called", saveCalled)
-        
+
         val exception = result.exceptionOrNull()
         assertNotNull(exception)
         assertTrue(
@@ -91,7 +95,7 @@ class ChildResurrectionTest {
                 saveCalled = true
             }
         }
-        
+
         val person = Person(
             personUuid = "P-002",
             householdId = 1L,
@@ -106,7 +110,7 @@ class ChildResurrectionTest {
 
         assertTrue("Sync should fail when person is tombstoned", result.isFailure)
         assertFalse("performPersonSave should not be called", saveCalled)
-        
+
         val exception = result.exceptionOrNull()
         assertNotNull(exception)
         assertTrue(
@@ -114,21 +118,21 @@ class ChildResurrectionTest {
             exception?.message?.contains("Person P-002 was deleted") == true
         )
     }
-    
+
     @Test
     fun testSyncPersonSucceedsIfNoTombstoneExists() = runBlocking {
         var saveCalled = false
 
         val syncHelper = object : RoomFirestoreSyncHelper(context, repository, { null }) {
             override suspend fun checkTombstoneExists(uuid: String, type: String): Boolean {
-                return false // No tombstones exist
+                return false
             }
 
             override suspend fun performPersonSave(person: Person, householdUuid: String, householdHouseNo: String) {
                 saveCalled = true
             }
         }
-        
+
         val person = Person(
             personUuid = "P-003",
             householdId = 1L,
