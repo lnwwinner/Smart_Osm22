@@ -12,7 +12,7 @@ interface SmartOsmAuthService {
     suspend fun login(@Body request: SmartOsmLoginRequest): SmartOsmTokenResponse
 
     @POST(SmartOsmApiConfig.REFRESH_TOKEN_PATH)
-    suspend fun refresh(@QueryMap params: Map<String, String>): SmartOsmTokenResponse
+    suspend fun refresh(@Body request: Map<String, String>): SmartOsmTokenResponse
 }
 
 /**
