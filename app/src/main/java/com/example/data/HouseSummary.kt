@@ -13,9 +13,6 @@ data class HouseSummary(
     val elderly: Int = 0,
     val earlyChild: Int = 0,
     val schoolAge: Int = 0,
-    /** Total children covered by the household summary (early childhood + school age). */
-    val children: Int
-        get() = earlyChild + schoolAge,
     val teenager: Int = 0,
     val workingAge: Int = 0,
     val latitude: Double?,
