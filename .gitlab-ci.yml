@@ -7,29 +7,21 @@ variables:
 
 android_unit_tests:
   stage: test
-  image: eclipse-temurin:17-jdk
+  image: ghcr.io/cirruslabs/android-sdk:36
   before_script:
-    - apt-get update -y
-    - apt-get install -y wget unzip
-    - wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
-    - unzip -q gradle-9.3.1-bin.zip -d /opt
-    - export PATH="/opt/gradle-9.3.1/bin:$PATH"
     - printf 'MAPS_API_KEY=placeholder_maps_api_key_ci_build\nFIREBASE_APPCHECK_DEBUG_TOKEN=placeholder_token\n' > .env
+    - keytool -genkey -v -keystore debug.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" || true
   script:
-    - gradle testDebugUnitTest --stacktrace --no-daemon
+    - ./gradlew testDebugUnitTest --stacktrace --no-daemon
 
 android_debug_apk:
   stage: build
-  image: eclipse-temurin:17-jdk
+  image: ghcr.io/cirruslabs/android-sdk:36
   before_script:
-    - apt-get update -y
-    - apt-get install -y wget unzip
-    - wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip
-    - unzip -q gradle-9.3.1-bin.zip -d /opt
-    - export PATH="/opt/gradle-9.3.1/bin:$PATH"
     - printf 'MAPS_API_KEY=placeholder_maps_api_key_ci_build\nFIREBASE_APPCHECK_DEBUG_TOKEN=placeholder_token\n' > .env
+    - keytool -genkey -v -keystore debug.keystore -keyalg RSA -keysize 2048 -validity 10000 -alias androiddebugkey -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" || true
   script:
-    - gradle assembleDebug --stacktrace --no-daemon
+    - ./gradlew assembleDebug --stacktrace --no-daemon
   artifacts:
     when: always
     expire_in: 30 days
